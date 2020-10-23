@@ -17,9 +17,9 @@ cdef class tdsp:
     cdef int o_node_index, d_node_index, start_ts, top_node_index, curr_ts, b_node
     cdef float new_imp, imp, t 
     cdef float[:] node_imp, sp_task, args
-    #cdef float[:,:] link_attribute
+    cdef float[:,:] link_attribute
     cdef int[:] popped, path 
-    cdef object my_heap, nxlinks, link_index, link_attribute, next_links, parent_node, path_skim, path_nodes, node_time, node_dist, node_toll
+    cdef object my_heap, link_index, nxlinks, next_links, parent_node, path_skim, path_nodes, node_time, node_dist, node_toll
     
     def __init__(self, int num_nodes, next_links, link_attribute, args):
         #Node impedance and index
@@ -51,7 +51,7 @@ cdef class tdsp:
                 break
             
             #Calculate time step
-            self.curr_ts = int(self.node_time[self.top_node_index]//15) + self.start_ts
+            self.curr_ts = int(self.node_time[self.top_node_index]/15) + self.start_ts
             if self.curr_ts > 96:
                 self.curr_ts -= 96
             self.curr_ts_col = self.curr_ts + 3
