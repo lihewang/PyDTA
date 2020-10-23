@@ -52,9 +52,10 @@ class tdsp:
             self.curr_ts_col = self.curr_ts + 3
             
             #Next links index                  
-            self.nxlinks = self.next_links[self.top_node_index]
-            for self.i in self.nxlinks[0]:
-                #self.i = self.link
+            self.nxlinks = self.next_links[self.top_node_index][0]         
+            for self.iter in range(len(self.nxlinks)):
+            #for self.i in self.nxlinks[0]:
+                self.i = self.nxlinks[self.iter]
                 self.b_node = int(self.link_attribute[self.i, 1])
                 self.t = self.link_attribute[self.i, self.curr_ts_col]
                 self.imp = self.t + self.args[2] * self.link_attribute[self.i, 3]

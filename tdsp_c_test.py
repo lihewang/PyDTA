@@ -8,16 +8,15 @@ Created on Tue Oct 20 16:39:10 2020
 
 import numpy as np
 import pandas as pd
-import heap as hp
 import timeit
-import tdsp_py as sp
+import tdsp as sp
 
 #Test code    
 if __name__ == "__main__":
     link = pd.read_csv("Data/LINK.CSV")
     node = pd.read_csv("Data/NODE.CSV")
 
-    sp_task = pd.Series({'O':4, 'D':603, 'TS':12, 'Type':0, 'Cost':0})
+    sp_task = pd.Series({'O':125, 'D':185, 'TS':12, 'Type':0, 'Cost':0})
     args = pd.Series({'num_zones':363, 'max_imp':9999.9, 'VOT_factor':0}, dtype='f')
       
     #Node id to node index look up

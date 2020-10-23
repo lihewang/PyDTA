@@ -4,7 +4,7 @@ Created on Fri Sep 25 09:14:22 2020
 
 @author: lihe.wang
 """
-
+cimport cython
 import numpy as np
 cimport numpy as np
 import pandas as pd
@@ -13,13 +13,14 @@ import timeit
 
 #Time Dependent Shortest Path
 cdef class tdsp:
-    cdef int num_nodes, i, path_size, curr_node, curr_ts_col
+    cdef int num_nodes, i, ite, path_size, curr_node, curr_ts_col
     cdef int o_node_index, d_node_index, start_ts, top_node_index, curr_ts, b_node
     cdef float new_imp, imp, t 
     cdef float[:] node_imp, sp_task, args
+    cdef np.ndarray node_time, node_dist, node_toll, parent_node
     cdef float[:,:] link_attribute
     cdef int[:] popped, path 
-    cdef object my_heap, link_index, nxlinks, next_links, parent_node, path_skim, path_nodes, node_time, node_dist, node_toll
+    cdef object my_heap, nxlinks, next_links, path_skim, path_nodes
     
     def __init__(self, int num_nodes, next_links, link_attribute, args):
         #Node impedance and index
@@ -32,7 +33,9 @@ cdef class tdsp:
         self.next_links = next_links
         self.link_attribute = link_attribute
         self.args = args
-        
+     
+    @cython.boundscheck(False) # turn off bounds-checking for entire function
+    @cython.wraparound(False)  # turn off negative index wrapping for entire function    
     cpdef build(self, sp_task):       
         self.o_node_index = sp_task[0]
         self.d_node_index = sp_task[1]        
@@ -57,8 +60,9 @@ cdef class tdsp:
             self.curr_ts_col = self.curr_ts + 3
             
             #Next links index           
-            self.nxlinks = self.next_links[self.top_node_index]
-            for self.i in self.nxlinks[0]:
+            self.nxlinks = self.next_links[self.top_node_index][0]
+            for self.ite in range(len(self.nxlinks)):
+                self.i = self.nxlinks[self.ite]
                 self.b_node = int(self.link_attribute[self.i, 1])
                 self.t = self.link_attribute[self.i, self.curr_ts_col]
                 self.imp = self.t + self.args[2] * self.link_attribute[self.i, 3]
