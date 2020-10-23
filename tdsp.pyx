@@ -14,12 +14,12 @@ import timeit
 #Time Dependent Shortest Path
 cdef class tdsp:
     cdef int num_nodes, i, path_size, curr_node, curr_ts_col
-    cdef int o_node_index, d_node_index, start_ts, top_node_index, curr_ts, BNd_index
-    cdef float new_imp, imp, t
+    cdef int o_node_index, d_node_index, start_ts, top_node_index, curr_ts, b_node
+    cdef float new_imp, imp, t 
     cdef float[:] node_imp, sp_task, args
     #cdef float[:,:] link_attribute
-    cdef int[:] popped, path, next_links
-    cdef object my_heap, link_index, link_attribute, next_links, parent_node, path_skim, path_nodes, node_time, node_dist, node_toll
+    cdef int[:] popped, path 
+    cdef object my_heap, nxlinks, link_index, link_attribute, next_links, parent_node, path_skim, path_nodes, node_time, node_dist, node_toll
     
     def __init__(self, int num_nodes, next_links, link_attribute, args):
         #Node impedance and index
@@ -58,7 +58,7 @@ cdef class tdsp:
             
             #Next links index           
             self.nxlinks = self.next_links[self.top_node_index]
-            for self.i in self.nx_links[0]:
+            for self.i in self.nxlinks[0]:
                 self.b_node = int(self.link_attribute[self.i, 1])
                 self.t = self.link_attribute[self.i, self.curr_ts_col]
                 self.imp = self.t + self.args[2] * self.link_attribute[self.i, 3]
