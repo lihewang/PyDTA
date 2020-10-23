@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import heap as hp
 import timeit
-import tdsp as sp
+import tdsp_py as sp
 
 #Test code    
 if __name__ == "__main__":
@@ -25,28 +25,33 @@ if __name__ == "__main__":
     index_node = pd.Series(node['N'], index=node.index, name='node_number')
     d_node = node[node['DTA_Type'].isin([90,91])][['DTA_Type', 'DNGRP']]    #Decision nodes
 
-    #Link's A node index and link index to find next links of a node  
-    link_index = pd.Series(link.index, index=node_index[link['A']], name='link_index') 
     link_attribute = link[['DISTANCE','TOLL']]
     link_attribute.insert(0, column='B', value=node_index[link['B']].values)
     link_attribute.insert(0, column='A', value=node_index[link['A']].values)
-    #np.where(link_attribute.to_numpy(dtype='f')[:,0].astype('i') == 1)
     #Link's AB node and link index
     index_a = pd.Series(node_index[link['A']].values, index=link.index)
     index_b = pd.Series(node_index[link['B']].values, index=link.index)
     link_AB = pd.DataFrame({'link_index':link.index},index=index_a.astype(str)+'_'+index_b.astype(str))
-      
+    df_index_a = pd.DataFrame({'anode':index_a, 'link':index_a.index})
+    a_link = df_index_a.groupby('anode')['link'].apply(list)
+    
+    next_links = pd.DataFrame(range(len(node_index))).join(a_link).drop(columns=0)
+    for row in next_links.loc[next_links.link.isnull(), 'link'].index:
+        next_links.at[row, 'link'] = []
+        
     #Create time for 96 time steps
     time = link['DISTANCE']/link['FFSPEED']*60
     for i in range(0,96):
         link_attribute.loc[:,'time'+str(i+1)] = time
     
     t1 = timeit.default_timer()
-    my_sp = sp.tdsp(len(node_index), link_index, link_attribute.to_numpy(dtype='f'), args.to_numpy())
+    my_sp = sp.tdsp(len(node_index), next_links.to_numpy(), link_attribute.to_numpy(dtype='f'), args.to_numpy())
     sp_task['O'] = node_index[sp_task['O']]
     sp_task['D'] = node_index[sp_task['D']]
+    
     parent_node = my_sp.build(sp_task.to_numpy())     
     path = my_sp.trace(sp_task.to_numpy(), parent_node)
+    
     t2 = timeit.default_timer() 
     d_node_in_path = path[path.index.isin(d_node.index)]
     if not d_node_in_path.empty:
