@@ -19,13 +19,13 @@ if __name__ == "__main__":
     items = np.array(imp)
     #items = np.array([0.7,0.2,0.3,0.4,0.5,0.6,0.1,80,9], dtype='f')
     
-    my_heap = hp.heap(10001, items) 
+    my_heap = hp.heap(50001, items) 
     
     for i in range(items.size):
         my_heap.insert(i)
         
-    for i in range(items.size):
-        items[i] += 0.1
+    items -= 0.1  
+    for i in range(items.size):        
         my_heap.increase_priority(i)
     #my_heap.print_heap()
     
