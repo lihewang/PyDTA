@@ -1,147 +1,88 @@
 # -*- coding: utf-8 -*-
+#cython: language_level=3
 """
-Created on Thu Oct  1 09:06:42 2020
+Created on Jan 14 2021
+priority heap for Dijkstra algorithm
+parent: pos//2
+left_child: pos*2
+right_childe pos*2+1
+lazy delete
+@author: Lihe Wang
+"""
 
-@author: lihe.wang
-"""
-import pyximport; pyximport.install()
-import numpy as np
-cimport numpy as np
-cimport cython
+from cymem.cymem cimport Pool
 
 cdef class heap:
-    cdef public int size, FRONT
-    cdef float[:] items
-    cdef int[:] minheap, item_pos
-
-    def __init__(self, int size, items):
+    
+    def __cinit__(self, int num_nd):
         self.size = 0   #start at pos 1
         self.FRONT = 1  #start at pos 1
-        self.minheap = np.zeros(size+1, dtype='i')
-        self.minheap[0] = -1
-        self.items = items
-        self.item_pos = np.zeros(size+1, dtype='i')
-    
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)            
-    cdef int parent(self, int pos):
-        return pos//2
-    
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
-    cdef int left_child(self, int pos):
-        return pos*2
-    
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
-    cdef int right_child(self, int pos):
-        return (pos*2)+1
-    
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    @cython.cdivision(True)
-    cdef bint is_leaf(self, int pos): 
-        if pos > (self.size//2) and pos <= self.size: 
-            return True
-        return False
-    
-    #called
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    cpdef is_empty(self):
-        if self.size == 0:
-            return True
-        return False
-    
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
+        self.mem = Pool()
+        self.minheap = <node**>self.mem.alloc(num_nd, sizeof(node*))
+        self.minheap[0] = NULL
+        self.ndpos = array.array('I', [0]*num_nd)
+        
     cdef swap(self, int fpos, int spos): 
-        self.item_pos[self.minheap[fpos]] = spos
-        self.item_pos[self.minheap[spos]] = fpos
+        self.ndpos[self.minheap[fpos].n] = spos
+        self.ndpos[self.minheap[spos].n] = fpos
         self.minheap[fpos], self.minheap[spos] = self.minheap[spos], self.minheap[fpos]
     
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     cdef bubble_down(self, int pos): 
         # If the node is a non-leaf node and greater than any of its child 
-        if not self.is_leaf(pos):
+        if not (pos > (self.size//2) and pos <= self.size):
             #If the node has right child
-            if self.right_child(pos) <= self.size:
-                if (self.items[self.minheap[pos]] > self.items[self.minheap[self.left_child(pos)]] or 
-                   self.items[self.minheap[pos]] > self.items[self.minheap[self.right_child(pos)]]): 
+            if (pos*2)+1 <= self.size:
+                if (self.minheap[pos].imp > self.minheap[pos*2].imp or 
+                   self.minheap[pos].imp > self.minheap[(pos*2)+1].imp): 
       
                     # Swap with the left child and heapify the left child 
-                    if self.items[self.minheap[self.left_child(pos)]] < self.items[self.minheap[self.right_child(pos)]]: 
-                        self.swap(pos, self.left_child(pos)) 
-                        self.bubble_down(self.left_child(pos)) 
+                    if self.minheap[pos*2].imp < self.minheap[(pos*2)+1].imp: 
+                        self.swap(pos, pos*2) 
+                        self.bubble_down(pos*2) 
       
                     # Swap with the right child and heapify the right child 
                     else: 
-                        self.swap(pos, self.right_child(pos)) 
-                        self.bubble_down(self.right_child(pos)) 
+                        self.swap(pos, (pos*2)+1) 
+                        self.bubble_down((pos*2)+1) 
             else:
-                if self.items[self.minheap[pos]] > self.items[self.minheap[self.left_child(pos)]]:
-                    self.swap(pos, self.left_child(pos)) 
-                    self.bubble_down(self.left_child(pos))
+                if self.minheap[pos].imp > self.minheap[pos*2].imp:
+                    self.swap(pos, pos*2) 
+                    self.bubble_down(pos*2)
     
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
+
     cdef bubble_up(self, int pos):
         cdef int current = pos
-        cdef int parent_node = self.minheap[self.parent(current)]
-        if parent_node >= 0:
-            while self.items[self.minheap[current]] < self.items[parent_node]: 
-                self.swap(current, self.parent(current)) 
-                current = self.parent(current) 
-                parent_node = self.minheap[self.parent(current)]
-                if parent_node < 0:
+        cdef node* parent_node = self.minheap[current//2]
+        if parent_node != NULL:
+            while self.minheap[current].imp < parent_node.imp: 
+                self.swap(current, current//2) 
+                current = current//2
+                parent_node = self.minheap[current//2]
+                if parent_node == NULL:
                     break
-    
-    #called
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    cpdef insert(self, int element):       
+   
+
+    cdef insert(self, node *nd): 
         self.size+= 1
-        self.minheap[self.size] = element
-        self.item_pos[element] = self.size
+        self.minheap[self.size] = nd
+        self.ndpos[nd.n] = self.size
         self.bubble_up(self.size)
-    
-    #called
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    cpdef increase_priority(self, int element):
-        self.bubble_up(self.item_pos[element])
-    
-    #called
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    cpdef pop(self): 
-        cdef int popped = self.minheap[self.FRONT] 
-        self.item_pos[popped] = 0
+      
+
+    cdef node* pop(self): 
+        cdef node *popped = self.minheap[self.FRONT] 
+        self.ndpos[popped.n] = 0
         self.minheap[self.FRONT] = self.minheap[self.size] 
-        self.minheap[self.size] = 0
+        self.minheap[self.size] = NULL
         self.size-= 1
         if self.size > 0:
             self.bubble_down(self.FRONT) 
         return popped
     
-    #for testing
-    def bld_minheap(self): 
-        for pos in range(self.size//2, 0, -1): 
-            self.bubble_up(pos) 
-            self.bubble_down(pos)
+    cdef increase_priority(self, node *nd):
+        self.bubble_up(self.ndpos[nd.n])
     
-    #for testing
-    def print_heap(self): 
-        cdef int i
-        for i in range(1, (self.size//2)+1): 
-            print(" PARENT : " + str(self.minheap[i]) + "(" + str(self.items[self.minheap[i]]) + ")" +
-                  " LEFT CHILD : " + str(self.minheap[2*i]) + "(" + str(self.items[self.minheap[2*i]]) + ")" +
-                  " RIGHT CHILD : " + str(self.minheap[2*i+1])) 
-                      
+
 
 
     
