@@ -8,14 +8,15 @@ Created on Fri Oct 16 15:26:34 2020
 Test heap.pyx
 """
 from cymem.cymem cimport Pool
+cimport typedef as td
 cimport heap as hp
 import timeit
 
 cpdef heap_test():
     cdef int num_nd = 10000, i
     cdef Pool mem = Pool()
-    cdef hp.node* nds = <hp.node*>mem.alloc(num_nd, sizeof(hp.node))
-    cdef hp.node *min_nd
+    cdef td.node* nds = <td.node*>mem.alloc(num_nd, sizeof(td.node))
+    cdef td.node *min_nd
     cdef hp.heap my_heap
     
     t1 = timeit.default_timer()
@@ -35,21 +36,3 @@ cpdef heap_test():
     t2 = timeit.default_timer() 
     print(f"Run time is {t2 - t1:0.6f} seconds")
     
-"""   
-    for i in range(items.size):
-        my_heap.insert(i)
-        
-    items -= 0.1  
-    for i in range(items.size):        
-        my_heap.insert(i)
-    
-    sq = "From low to high top 10"
-    for i in range(10):
-        min = my_heap.pop()
-        sq += ", " + str(min) + "(" + str(items[min]) + ")"
-    print(sq) 
-    print("Number of heap element = " + str(my_heap.size+1))
-    print("Heap memory size = " + str(sys.getsizeof(my_heap)) + " bytes")
-    t2 = timeit.default_timer() 
-    print(f"Run time is {t2 - t1:0.6f} seconds")
-"""

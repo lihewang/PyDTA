@@ -6,7 +6,6 @@ priority heap for Dijkstra algorithm
 parent: pos//2
 left_child: pos*2
 right_childe pos*2+1
-lazy delete
 @author: Lihe Wang
 """
 
@@ -18,13 +17,13 @@ cdef class heap:
         self.size = 0   #start at pos 1
         self.FRONT = 1  #start at pos 1
         self.mem = Pool()
-        self.minheap = <node**>self.mem.alloc(num_nd, sizeof(node*))
+        self.minheap = <td.node**>self.mem.alloc(num_nd, sizeof(td.node*))
         self.minheap[0] = NULL
         self.ndpos = array.array('I', [0]*num_nd)
         
     cdef swap(self, int fpos, int spos): 
-        self.ndpos[self.minheap[fpos].n] = spos
-        self.ndpos[self.minheap[spos].n] = fpos
+        self.ndpos[self.minheap[fpos].ni] = spos
+        self.ndpos[self.minheap[spos].ni] = fpos
         self.minheap[fpos], self.minheap[spos] = self.minheap[spos], self.minheap[fpos]
     
     cdef bubble_down(self, int pos): 
@@ -52,7 +51,7 @@ cdef class heap:
 
     cdef bubble_up(self, int pos):
         cdef int current = pos
-        cdef node* parent_node = self.minheap[current//2]
+        cdef td.node* parent_node = self.minheap[current//2]
         if parent_node != NULL:
             while self.minheap[current].imp < parent_node.imp: 
                 self.swap(current, current//2) 
@@ -62,16 +61,16 @@ cdef class heap:
                     break
    
 
-    cdef insert(self, node *nd): 
+    cdef insert(self, td.node *nd): 
         self.size+= 1
         self.minheap[self.size] = nd
-        self.ndpos[nd.n] = self.size
+        self.ndpos[nd.ni] = self.size
         self.bubble_up(self.size)
       
 
-    cdef node* pop(self): 
-        cdef node *popped = self.minheap[self.FRONT] 
-        self.ndpos[popped.n] = 0
+    cdef td.node* pop(self): 
+        cdef td.node *popped = self.minheap[self.FRONT] 
+        self.ndpos[popped.ni] = 0
         self.minheap[self.FRONT] = self.minheap[self.size] 
         self.minheap[self.size] = NULL
         self.size-= 1
@@ -79,8 +78,13 @@ cdef class heap:
             self.bubble_down(self.FRONT) 
         return popped
     
-    cdef increase_priority(self, node *nd):
-        self.bubble_up(self.ndpos[nd.n])
+    cdef increase_priority(self, td.node *nd):
+        self.bubble_up(self.ndpos[nd.ni])
+        
+    cdef bint is_empty(self):
+        if self.size == 0:
+            return True
+        return False
     
 
 
