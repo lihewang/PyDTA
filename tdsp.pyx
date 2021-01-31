@@ -76,8 +76,9 @@ cdef class tdsp:
             self.links[index].bi = self.node_index[row['B']]
             self.links[index].a = row['A']
             self.links[index].b = row['B']
-            self.links[index].link_id = index
-            
+
+            self.links[index].dist = row['DISTANCE']
+            self.links[index].ffspd = row['FFSPEED']
             #time for time steps
             self.links[index].time = <double*>self.mem.alloc(num_time_steps, sizeof(double))
             t = row['DISTANCE']/row['FFSPEED']*60       
@@ -98,21 +99,19 @@ cdef class tdsp:
         cdef double link_time, imp, new_imp
         
         o_node_index = self.node_index[sp_task[0]]
-        d_node_index = self.node_index[sp_task[1]]        
+        d_node_index = self.node_index[sp_task[1]]  
+
         start_ts = sp_task[2]
         self.nodes[o_node_index].imp = 0
         self.nodes[o_node_index].parent = NULL
         my_heap.insert(&self.nodes[o_node_index])
         
-        #for j in range(10):
         while not my_heap.is_empty():
             top_node = my_heap.pop()
-            #print('pop node ' + str(top_node.n))
             top_node.popped = 1
-            if top_node.ni == d_node_index:
-                break
+            
             #zones can't be transpassed    
-            if top_node.n <= 4800 and top_node.ni != o_node_index:
+            if top_node.n <= 4584 and top_node.ni != o_node_index:
                 continue
             
             #Calculate time step
@@ -129,23 +128,27 @@ cdef class tdsp:
                     continue
                 #print('B node ' + str(b_node.n))
                 link_time = nxlink.time[curr_ts]
-                imp = link_time + 0.2 * nxlink.toll
+                imp = link_time #+ 0.2 * nxlink.toll
                 
                 #Update node impedance
                 new_imp = top_node.imp + imp
                 if new_imp < b_node.imp:
                     if b_node.imp == 99999.9:
+                        b_node.imp = new_imp
                         my_heap.insert(b_node)
-                        #print('insert node ' + str(b_node.n))
+                        # print('insert b node ' + str(b_node.n))
                     else:
+                        b_node.imp = new_imp
                         my_heap.increase_priority(b_node)
-                        #print('lower imp for node ' + str(b_node.n))
-                    b_node.imp = new_imp
+                        # print('lower imp for node ' + str(b_node.n))
+
                     b_node.time = top_node.time + link_time
                     b_node.dist = top_node.dist + nxlink.dist
                     b_node.toll = top_node.toll + nxlink.toll
                     b_node.parent = top_node
-    
+
+                    if b_node.ni == d_node_index:
+                        return
     #trace path
     cpdef trace(self, sp_task):
         cdef int d_node_index, path_size
@@ -155,18 +158,14 @@ cdef class tdsp:
         path_size = 0
         d_node_index = self.node_index[sp_task[1]]
         curr_node = &self.nodes[d_node_index]
+        print('skim time ' + str(curr_node.time) + ' dist ' + str(curr_node.dist))
         while curr_node != NULL:
             path_size += 1
             path[path_size-1] = curr_node.n
             curr_node = curr_node.parent
         
         path_nodes = np.flip(path[:path_size])
-        print(path_nodes)
-        # path_skim = pd.DataFrame({'time':self.node_time[self.path_nodes], 
-        #                                'dist':self.node_dist[self.path_nodes], 
-        #                                'toll':self.node_toll[self.path_nodes]}, 
-        #                                index=self.path_nodes)
-        # return path_skim
+        # print(path_nodes)
         
         # #test
         # cdef int node_idx = self.node_index[17193], ilink

@@ -14,6 +14,6 @@ cdef struct node:
     node* parent
     
 cdef struct link:
-    unsigned int a, b, ai, bi, link_id
+    unsigned int a, b, ai, bi
     double dist, ffspd, toll
     double *time

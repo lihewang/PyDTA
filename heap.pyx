@@ -59,12 +59,12 @@ cdef class heap:
                 parent_node = self.minheap[current//2]
                 if parent_node == NULL:
                     break
-   
 
     cdef insert(self, td.node *nd): 
         self.size+= 1
         self.minheap[self.size] = nd
         self.ndpos[nd.ni] = self.size
+        #print('node ' + str(nd.n) + ' imp ' + str(nd.imp) + ' insert at ' + str(self.size))
         self.bubble_up(self.size)
       
 

@@ -14,7 +14,7 @@ if __name__ == "__main__":
     nodefile = "../Data/Regional/NODE.CSV"
     linkfile = "../Data/Regional/LINK.CSV"
     
-    sp_task = pd.Series({'O':2, 'D':4344, 'TS':12, 'Type':0, 'Cost':0})
+    sp_task = pd.Series({'O':12077, 'D':16023, 'TS':12, 'Type':0, 'Cost':0})
     sp = tdsp.tdsp(nodefile, linkfile) 
     t1 = timeit.default_timer()       
     sp.build(sp_task)
