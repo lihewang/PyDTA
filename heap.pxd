@@ -22,3 +22,4 @@ cdef class heap:
     cdef td.node* pop(self)
     cdef increase_priority(self, td.node *nd)
     cdef bint is_empty(self)
+    cdef print_heap(self)

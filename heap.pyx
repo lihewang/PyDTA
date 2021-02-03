@@ -10,6 +10,7 @@ right_childe pos*2+1
 """
 
 from cymem.cymem cimport Pool
+import time
 
 cdef class heap:
     
@@ -64,27 +65,54 @@ cdef class heap:
         self.size+= 1
         self.minheap[self.size] = nd
         self.ndpos[nd.ni] = self.size
-        #print('node ' + str(nd.n) + ' imp ' + str(nd.imp) + ' insert at ' + str(self.size))
+        # print('*heap: insert node ' + str(nd.n) + ' imp ' + str(nd.imp) + ' insert at ' + str(self.size))
+        # time.sleep(1)
+        # self.print_heap()
+        # time.sleep(1)
         self.bubble_up(self.size)
-      
+        # print('*heap: after bubble up')
+        # time.sleep(1)
+        # self.print_heap()
+        # time.sleep(1)
 
     cdef td.node* pop(self): 
         cdef td.node *popped = self.minheap[self.FRONT] 
         self.ndpos[popped.ni] = 0
-        self.minheap[self.FRONT] = self.minheap[self.size] 
+        self.minheap[self.FRONT] = self.minheap[self.size]
+        self.ndpos[self.minheap[self.size].ni] = self.FRONT
         self.minheap[self.size] = NULL
         self.size-= 1
         if self.size > 0:
             self.bubble_down(self.FRONT) 
+        # print('*heap: after pop')
+        # time.sleep(1)
+        # self.print_heap()
+        # time.sleep(1)
         return popped
     
     cdef increase_priority(self, td.node *nd):
+        # print('*heap: node ' + str(nd.n) + ' in heap position ' + str(self.ndpos[nd.ni]))
+        # time.sleep(2)
+        # print('*heap: node in heap ' + str(self.minheap[self.ndpos[nd.ni]].n))
+        # time.sleep(2)
         self.bubble_up(self.ndpos[nd.ni])
         
     cdef bint is_empty(self):
         if self.size == 0:
             return True
         return False
+    
+    cdef print_heap(self):
+        cdef int i
+        if self.size > 0:
+            for i in range(1, self.size+1): 
+                print('*heap position ' + str(i) + ' node ' + str(self.minheap[i].n))
+                print('*heap: position in array ' + str(self.ndpos[self.minheap[i].ni]))
+            
+            # print(" PARENT : " + str(self.minheap[i].n) +
+                  # " LEFT CHILD : " + str(self.minheap[2*i].n) +
+                  # " RIGHT CHILD : " + str(self.minheap[2*i+1].n))
+        
     
 
 
