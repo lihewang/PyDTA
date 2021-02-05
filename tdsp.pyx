@@ -7,6 +7,8 @@ Created on Wed Jan 27 09:13:49 2021
 """
 
 from cymem.cymem cimport Pool
+from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
+from libc.string cimport memcpy
 cimport typedef as td
 import pandas as pd
 import numpy as np
@@ -21,6 +23,7 @@ cdef class tdsp:
     cdef object node_index
     cdef int num_nodes 
     cdef int num_zones
+    cdef int num_links
     def __init__(self, nodefile, linkfile, num_zones):
         t1 = timeit.default_timer()        
         cdef int i, link_index
@@ -33,8 +36,9 @@ cdef class tdsp:
         df_link = pd.read_csv(linkfile)
         
         self.num_nodes = len(df_node)
-        self.nodes = <td.node*>self.mem.alloc(len(df_node), sizeof(td.node))
-        self.links = <td.link*>self.mem.alloc(len(df_link), sizeof(td.link))
+        self.num_links = len(df_link)
+        self.nodes = <td.node*>self.mem.alloc(self.num_nodes, sizeof(td.node))
+        self.links = <td.link*>self.mem.alloc(self.num_links, sizeof(td.link))
         
         #--- create node struct ---
         #use node index internally to identify nodes
@@ -178,7 +182,7 @@ cdef class tdsp:
         path_size = 0
         d_node_index = self.node_index[sp_task[1]]
         curr_node = &self.nodes[d_node_index]
-        # print('skim time ' + str(curr_node.time) + ' dist ' + str(curr_node.dist))
+        print('skim time ' + str(curr_node.time) + ' dist ' + str(curr_node.dist))
         
         # while curr_node != NULL:
         #     path_size += 1
@@ -188,6 +192,22 @@ cdef class tdsp:
         # path_nodes = np.flip(path[:path_size])
         # print(path_nodes)
         # return curr_node.time
-
-
+    
+    #pickling for multiprocessing
+    cpdef bytes get_data(self):
+        return <bytes>(<char *>self.nodes)[:sizeof(td.node) * self.num_nodes]
+    
+    cdef void set_data(self, bytes nodes):
+        memcpy(self.nodes, <char*>self.nodes, sizeof(td.node) * self.num_nodes)
         
+    def __reduce__(self):
+        data = self.get_data()
+        return (rebuild, (data,))
+    
+    def __dealloc__(self):
+        PyMem_Free(self.nodes)
+        
+cpdef object rebuild(bytes data):
+    c = tdsp()
+    c.set_data(data)
+    return c        
