@@ -68,7 +68,7 @@ cdef class tdsp:
                 i += 1
         
         t2 = timeit.default_timer()  
-        print(f"Run time for node struct is {t2 - t1:0.6f} seconds")
+        print(f"Run time for node struct is {t2 - t1:0.2f} seconds")
             
         t1 = timeit.default_timer()       
         # --- create link struct ---  
@@ -91,7 +91,7 @@ cdef class tdsp:
                 self.links[index].time[i] = t
               
         t2 = timeit.default_timer()  
-        print(f"Run time for link struct is {t2 - t1:0.6f} seconds")
+        print(f"Run time for link struct is {t2 - t1:0.2f} seconds")
         
     #build path    
     cpdef build(self, sp_task):
@@ -182,8 +182,8 @@ cdef class tdsp:
         path_size = 0
         d_node_index = self.node_index[sp_task[1]]
         curr_node = &self.nodes[d_node_index]
-        print('skim time ' + str(curr_node.time) + ' dist ' + str(curr_node.dist))
-        
+        # print('skim time ' + str(curr_node.time) + ' dist ' + str(curr_node.dist))
+        return (curr_node.time, curr_node.dist)
         # while curr_node != NULL:
         #     path_size += 1
         #     path[path_size-1] = curr_node.n
@@ -193,21 +193,4 @@ cdef class tdsp:
         # print(path_nodes)
         # return curr_node.time
     
-    #pickling for multiprocessing
-    cpdef bytes get_data(self):
-        return <bytes>(<char *>self.nodes)[:sizeof(td.node) * self.num_nodes]
-    
-    cdef void set_data(self, bytes nodes):
-        memcpy(self.nodes, <char*>self.nodes, sizeof(td.node) * self.num_nodes)
-        
-    def __reduce__(self):
-        data = self.get_data()
-        return (rebuild, (data,))
-    
-    def __dealloc__(self):
-        PyMem_Free(self.nodes)
-        
-cpdef object rebuild(bytes data):
-    c = tdsp()
-    c.set_data(data)
-    return c        
+ 
