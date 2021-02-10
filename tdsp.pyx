@@ -86,10 +86,12 @@ cdef class tdsp:
             self.links[index].ffspd = row['FFSPEED']
             #time for time steps
             self.links[index].time = <double*>self.mem.alloc(num_time_steps, sizeof(double))
+            self.links[index].vol = <double*>self.mem.alloc(num_time_steps, sizeof(double))
             t = row['DISTANCE']/row['FFSPEED']*60       
             for i in range(num_time_steps):
                 self.links[index].time[i] = t
-              
+                self.links[index].vol[i] = 0
+                
         t2 = timeit.default_timer()  
         print(f"Run time for link struct is {t2 - t1:0.2f} seconds")
         
@@ -114,7 +116,7 @@ cdef class tdsp:
             # self.nodes[j].time = 0
             # self.nodes[j].dist = 0
             # self.nodes[j].toll = 0
-            # self.nodes[j].parent = NULL
+            self.nodes[j].parent = NULL
             
         self.nodes[o_node_index].imp = 0
         self.nodes[o_node_index].parent = NULL
@@ -169,7 +171,9 @@ cdef class tdsp:
                     b_node.dist = top_node.dist + nxlink.dist
                     b_node.toll = top_node.toll + nxlink.toll
                     b_node.parent = top_node
-
+                    b_node.parent_link = nxlink
+                    b_node.ts = curr_ts
+                    
                     if b_node.ni == d_node_index:
                         return
     
@@ -177,13 +181,22 @@ cdef class tdsp:
     cpdef trace(self, sp_task):
         cdef int d_node_index, path_size
         cdef td.node *curr_node
-        
-        path = np.zeros(self.num_nodes, dtype='i')
-        path_size = 0
+
         d_node_index = self.node_index[sp_task[1]]
         curr_node = &self.nodes[d_node_index]
-        # print('skim time ' + str(curr_node.time) + ' dist ' + str(curr_node.dist))
+        # load volume
+        while curr_node.n != sp_task[0]:
+            curr_node.parent_link.vol[curr_node.ts] += sp_task[4]
+            curr_node = curr_node.parent
+
+
+        d_node = &self.nodes[d_node_index]    
+        # print('skim time ' + str(d_node.time) + ' dist ' + str(d_node.dist))
         return (curr_node.time, curr_node.dist)
+    
+            
+        # path = np.zeros(self.num_nodes, dtype='i')
+        # path_size = 0
         # while curr_node != NULL:
         #     path_size += 1
         #     path[path_size-1] = curr_node.n
