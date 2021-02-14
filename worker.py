@@ -4,11 +4,11 @@ Created on Wed Feb  3 15:45:34 2021
 
 @author: lihe.wang
 """
-
+# import pysnooper
 import yaml as ym
 import tdsp
-
-from multiprocessing import Process
+import numpy as np
+from multiprocessing import Process, shared_memory
 
 class worker(Process):
     
@@ -20,15 +20,15 @@ class worker(Process):
         self.num_zones = par['num_processor']
         self.node_file = par['node_file']
         self.link_file = par['link_file']
-
+        self.num_time_steps = par['num_time_steps']
         self.job_queue = job_queue
         self.r_queue = r_queue
         
-        
+ 
     def run(self):
-        self.r_queue.put('processor ' + str(self.i))
+        
         d = 0
-        sp = tdsp.tdsp(self.node_file, self.link_file, self.num_zones)
+        sp = tdsp.tdsp(self.node_file, self.link_file, self.num_zones, self.num_time_steps)
         while True :              
             tasks = self.job_queue.get()
             
@@ -41,19 +41,15 @@ class worker(Process):
                 
             if d == 1:
                 break
-                # self.r_queue.put('task time ' + str(t))
-            # self.job_queue.task_done()
+            
+        vol = sp.get_vol()
+        # with pysnooper.snoop('snooper_log.log'):
+        shm = shared_memory.SharedMemory(name='shared_vol')
+        shared_vol = np.ndarray(vol.shape, dtype=vol.dtype, buffer=shm.buf)
+        shared_vol += vol
+        # self.r_queue.put(shared_vol[1])
+        self.r_queue.put('processor ' + str(self.i))
+        shm.close() 
 
-             
-        
-        # for task in iter(self.job_queue.get(), 'DONE'):
-        #     try:
-        #         sp.build(task) 
-        #         sp.trace(task)
-        #     except Exception as e:
-        #         logger.error(e)
-        #     finally:
-        #         self.job_queue.task_done()
-      
                      
 

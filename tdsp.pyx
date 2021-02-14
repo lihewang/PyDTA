@@ -5,7 +5,7 @@ Created on Wed Jan 27 09:13:49 2021
 
 @author: lihe.wang
 """
-
+import logging
 from cymem.cymem cimport Pool
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from libc.string cimport memcpy
@@ -16,6 +16,7 @@ import timeit
 import time
 cimport heap as hp
 
+
 cdef class tdsp:
     cdef td.node* nodes
     cdef td.link* links
@@ -24,13 +25,16 @@ cdef class tdsp:
     cdef int num_nodes 
     cdef int num_zones
     cdef int num_links
-    def __init__(self, nodefile, linkfile, num_zones):
+    cdef int num_time_steps
+    def __init__(self, nodefile, linkfile, num_zones, num_time_steps):
+        log = logging.getLogger(__name__)
+        
         t1 = timeit.default_timer()        
         cdef int i, link_index
-        cdef int num_time_steps = 96
         cdef double t
         self.mem = Pool()
         self.num_zones = num_zones
+        self.num_time_steps = num_time_steps
         
         df_node = pd.read_csv(nodefile)
         df_link = pd.read_csv(linkfile)
@@ -42,7 +46,7 @@ cdef class tdsp:
         
         #--- create node struct ---
         #use node index internally to identify nodes
-        print('create node struct')
+        log.info('create node struct')
         self.node_index = pd.Series(df_node.index, index=df_node['N'], name='nd_index')
         #link's a_node index
         index_a = pd.Series(self.node_index[df_link['A']].values, index=df_link.index)
@@ -68,11 +72,11 @@ cdef class tdsp:
                 i += 1
         
         t2 = timeit.default_timer()  
-        print(f"Run time for node struct is {t2 - t1:0.2f} seconds")
+        log.info(f"Run time for node struct is {t2 - t1:0.2f} seconds")
             
         t1 = timeit.default_timer()       
         # --- create link struct ---  
-        print('create link struct')
+        log.info('create link struct')
         #ffspeed can't be zero        
         df_link['FFSPEED'] = df_link['FFSPEED'].replace(0, 25)  
         # loop links
@@ -93,7 +97,7 @@ cdef class tdsp:
                 self.links[index].vol[i] = 0
                 
         t2 = timeit.default_timer()  
-        print(f"Run time for link struct is {t2 - t1:0.2f} seconds")
+        log.info(f"Run time for link struct is {t2 - t1:0.2f} seconds")
         
     #build path    
     cpdef build(self, sp_task):
@@ -194,16 +198,16 @@ cdef class tdsp:
         # print('skim time ' + str(d_node.time) + ' dist ' + str(d_node.dist))
         return (curr_node.time, curr_node.dist)
     
-            
-        # path = np.zeros(self.num_nodes, dtype='i')
-        # path_size = 0
-        # while curr_node != NULL:
-        #     path_size += 1
-        #     path[path_size-1] = curr_node.n
-        #     curr_node = curr_node.parent
+    cpdef get_vol(self):
+        cdef int i
+        cdef td.link *link
         
-        # path_nodes = np.flip(path[:path_size])
-        # print(path_nodes)
-        # return curr_node.time
-    
+        vol = np.zeros((self.num_links, self.num_time_steps))
+
+        for i in range(self.num_links):
+            for j in range(self.num_time_steps):
+                vol[i][j]=self.links[i].vol[j]  
+        
+        return vol
+
  

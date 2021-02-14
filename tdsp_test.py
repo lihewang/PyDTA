@@ -4,38 +4,70 @@ Created on Wed Jan 27 10:45:13 2021
 
 @author: lihe.wang
 """
+#packages installed: cython, pandas, cymem
 import pyximport; pyximport.install(reload_support=True)
-
+import logging
+import logging.config
 import yaml as ym
 import pandas as pd
+import numpy as np
 import timeit
-from multiprocessing import Queue
+from multiprocessing import Queue, shared_memory
 from worker import worker
 import tdsp
+from importlib import reload
 
-      
-if __name__ == "__main__":
-    print('--- start ---') 
-    multi_p = True
-    # multi_p = False
+def set_log(file_name):
+    logging.shutdown()
+    reload(logging)
+
+    # logging.config.fileConfig('logging.config', disable_existing_loggers=False)
+    log = logging.getLogger(__name__)
+    log.setLevel(logging.DEBUG)
     
-    processes = []
+    fh = logging.FileHandler(file_name, mode='w')
+    fh.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s %(name)s %(levelname)s : %(message)s')
+    ch.setFormatter(formatter)
+    fh.setFormatter(formatter)
+    log.addHandler(ch)
+    log.addHandler(fh) 
+    return log
+    
+if __name__ == "__main__":  
+        
     with open(r'..\Data\control.yaml') as file:
         par = ym.full_load(file)
+        
+    #set logging
+    log = set_log(par['log_file'])    
+    log.info('### start ###') 
     
+    multi_p = True
+    # multi_p = False
+        
     t1 = timeit.default_timer()
     
     if multi_p:
         #start multiprocessors
+        processes = []
         q = Queue()
         r = Queue()
+        df_link = pd.read_csv(par['link_file'])
+        arr = np.zeros((len(df_link), par['num_time_steps']))
+        shm = shared_memory.SharedMemory(name='shared_vol', create=True, size=arr.nbytes)
+        # arr = Array('d', len(df_link)*par['num_time_steps'])
+        # ndarr = np.frombuffer(arr.get_obj()).reshape((len(df_link), par['num_time_steps']))
+        ndarr = np.ndarray(arr.shape, dtype=arr.dtype, buffer=shm.buf)
+        ndarr[:] = arr[:]
         for i in range(par['num_processor']):
             p=worker(q, r, i)
-            # p.daemon = True
             p.start()
             processes.append(p)  
     else:
-        sp = tdsp.tdsp(par['node_file'], par['link_file'], par['num_zones'])
+        sp = tdsp.tdsp(par['node_file'], par['link_file'], par['num_zones'], par['num_time_steps'])
     
     trips = pd.read_csv(par['trip_file'], skiprows=1)
     trips.set_index(['ORG','DES','PERIOD'], inplace=True) 
@@ -70,15 +102,19 @@ if __name__ == "__main__":
         for task in trips.to_numpy(): 
             # task = [1,3,1,'auto',0.12]
             sp.build(task) 
-            sp.trace(task)  
-    
+            sp.trace(task) 
+            
+        vol = sp.get_vol()
+
     if multi_p:
         for p in processes:
             p.join()
         
         while not r.empty():
-            print ("RESULT: {0}".format(r.get()))
-     
+            log.info("{0}".format(r.get()))
+        
+        shm.unlink()
     t2 = timeit.default_timer()
-    print(f"Run time: {t2 - t1:0.2f} seconds")   
-    print('--- end of run ---')
+    np.savetxt("vol.csv", ndarr, delimiter=",")
+    log.info(f"Run time {t2 - t1:0.2f} seconds")   
+    log.info('### end of run ###')
