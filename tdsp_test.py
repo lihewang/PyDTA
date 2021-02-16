@@ -4,7 +4,7 @@ Created on Wed Jan 27 10:45:13 2021
 
 @author: lihe.wang
 """
-#packages installed: cython, pandas, cymem
+#packages installed: cython, pandas, cymem, pyyaml, numpy
 import pyximport; pyximport.install(reload_support=True)
 import logging
 import logging.config
@@ -12,8 +12,9 @@ import yaml as ym
 import pandas as pd
 import numpy as np
 import timeit
-from multiprocessing import Queue, shared_memory
+from multiprocessing import Process, Queue, shared_memory
 from worker import worker
+from read_network import read
 import tdsp
 from importlib import reload
 
@@ -50,6 +51,9 @@ if __name__ == "__main__":
         
     t1 = timeit.default_timer()
     
+    # read network files to shared memory
+    shm_node, shm_link, node_shape, node_type, link_shape, link_type = read(par['node_file'], par['link_file'])
+
     if multi_p:
         #start multiprocessors
         processes = []
@@ -63,7 +67,7 @@ if __name__ == "__main__":
         ndarr = np.ndarray(arr.shape, dtype=arr.dtype, buffer=shm.buf)
         ndarr[:] = arr[:]
         for i in range(par['num_processor']):
-            p=worker(q, r, i)
+            p=Process(target=worker, args=(q, r, i, node_shape, node_type, link_shape, link_type))
             p.start()
             processes.append(p)  
     else:
@@ -114,6 +118,8 @@ if __name__ == "__main__":
             log.info("{0}".format(r.get()))
         
         shm.unlink()
+        shm_node.unlink()
+        shm_link.unlink()
     t2 = timeit.default_timer()
     np.savetxt("vol.csv", ndarr, delimiter=",")
     log.info(f"Run time {t2 - t1:0.2f} seconds")   

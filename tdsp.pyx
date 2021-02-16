@@ -7,15 +7,13 @@ Created on Wed Jan 27 09:13:49 2021
 """
 import logging
 from cymem.cymem cimport Pool
-from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
-from libc.string cimport memcpy
 cimport typedef as td
 import pandas as pd
 import numpy as np
 import timeit
 import time
 cimport heap as hp
-
+from multiprocessing import shared_memory
 
 cdef class tdsp:
     cdef td.node* nodes
@@ -26,7 +24,7 @@ cdef class tdsp:
     cdef int num_zones
     cdef int num_links
     cdef int num_time_steps
-    def __init__(self, nodefile, linkfile, num_zones, num_time_steps):
+    def __init__(self, node_shape, node_type, link_shape, link_type, num_zones, num_time_steps):
         log = logging.getLogger(__name__)
         
         t1 = timeit.default_timer()        
@@ -36,9 +34,18 @@ cdef class tdsp:
         self.num_zones = num_zones
         self.num_time_steps = num_time_steps
         
-        df_node = pd.read_csv(nodefile)
-        df_link = pd.read_csv(linkfile)
-        
+        # df_node = pd.read_csv(nodefile)
+        # df_link = pd.read_csv(linkfile)
+        shm_node = shared_memory.SharedMemory(name='shared_node')
+        shared_node = np.ndarray(node_shape, dtype=node_type, buffer=shm_node.buf)
+        df_node = pd.DataFrame(shared_node.copy())
+        shm_link = shared_memory.SharedMemory(name='shared_link')
+        shared_link = np.ndarray(link_shape, dtype=link_type, buffer=shm_link.buf)
+        df_link = pd.DataFrame(shared_link.copy())
+
+        df_node.columns = ['N','X','Y','DTA_Type','DNGRP']
+        df_link.columns = ['A','B','DISTANCE','CAPACITY','CAPLN','FTYPE','FFSPEED','ALPHA','BETA','IMPFAC','TOLLSEGNUM','TOLL_POLICY','TOLL','SEG_DISTANCE','Truck','DELAY_FLAG','CAV']
+
         self.num_nodes = len(df_node)
         self.num_links = len(df_link)
         self.nodes = <td.node*>self.mem.alloc(self.num_nodes, sizeof(td.node))
