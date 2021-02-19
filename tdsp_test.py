@@ -12,6 +12,7 @@ import yaml as ym
 import pandas as pd
 import numpy as np
 import timeit
+import time
 from multiprocessing import Process, Queue, shared_memory
 from worker import worker
 from read_network import read
@@ -44,7 +45,7 @@ if __name__ == "__main__":
         
     #set logging
     log = set_log(par['log_file'])    
-    log.info('### start ###') 
+    log.info('//--- PyDTA start ---//') 
     
     multi_p = True
     # multi_p = False
@@ -52,27 +53,32 @@ if __name__ == "__main__":
     t1 = timeit.default_timer()
     
     # read network files to shared memory
-    shm_node, shm_link, node_shape, node_type, link_shape, link_type = read(par['node_file'], par['link_file'])
+    shm, shm_par  = read(par['node_file'], par['link_file'])
+    shm_node = shm[0] 
+    shm_link = shm[1] 
+    
+    #create shared memory for volume
+    df_link = pd.read_csv(par['link_file'])                         #get number of rows needed
+    arr = np.zeros((len(df_link), par['num_time_steps']))           #numpy array for volume
+    shm_vol = shared_memory.SharedMemory(name='shared_vol', create=True, size=arr.nbytes)
+    ndarr_vol = np.ndarray(arr.shape, dtype=arr.dtype, buffer=shm_vol.buf)
+    ndarr_vol[:] = arr[:]
 
     if multi_p:
         #start multiprocessors
         processes = []
         q = Queue()
         r = Queue()
-        df_link = pd.read_csv(par['link_file'])
-        arr = np.zeros((len(df_link), par['num_time_steps']))
-        shm = shared_memory.SharedMemory(name='shared_vol', create=True, size=arr.nbytes)
-        # arr = Array('d', len(df_link)*par['num_time_steps'])
-        # ndarr = np.frombuffer(arr.get_obj()).reshape((len(df_link), par['num_time_steps']))
-        ndarr = np.ndarray(arr.shape, dtype=arr.dtype, buffer=shm.buf)
-        ndarr[:] = arr[:]
+
         for i in range(par['num_processor']):
-            p=Process(target=worker, args=(q, r, i, node_shape, node_type, link_shape, link_type))
+            p=Process(target=worker, args=(q, r, i, shm_par))
+            time.sleep(2)
             p.start()
             processes.append(p)  
     else:
-        sp = tdsp.tdsp(par['node_file'], par['link_file'], par['num_zones'], par['num_time_steps'])
+        sp = tdsp.tdsp(shm_par, par['num_zones'], par['num_time_steps'])
     
+    log.info('--- read trips ---')
     trips = pd.read_csv(par['trip_file'], skiprows=1)
     trips.set_index(['ORG','DES','PERIOD'], inplace=True) 
     # trips = pd.read_csv(par['trip_file'])
@@ -81,12 +87,17 @@ if __name__ == "__main__":
     trips = pd.DataFrame(trips.stack())
     trips.reset_index(inplace=True)
     trips.columns = ['I','J','period','class','trip'] 
-    num_trip_table = len(trips)
-    trips = trips[:100000]
+    trips.drop(trips[trips.trip == 0].index, inplace=True)
+    log.info('number of OD pairs ' + str(len(trips)))
+    tgrp = trips.groupby(['I','period','class']).agg({'J':list, 'trip':list})
+    tgrp.reset_index(inplace=True)
+    log.info('number of path trees ' + str(len(tgrp)))
+    tgrp = tgrp[:100000]
 
     if multi_p:
         #send task in batch
-        num_trips = len(trips)
+        log.info('--- distribute tasks ---')
+        num_trips = len(tgrp)
         start = 0
         end = par['task_size']
         while start <= num_trips:
@@ -94,7 +105,7 @@ if __name__ == "__main__":
                 tend = end
             else:
                 tend = num_trips
-            task = trips[start:tend].to_numpy()
+            task = tgrp[start:tend].to_numpy()
             q.put(task)
             start = end
             end = start + par['task_size']
@@ -103,12 +114,15 @@ if __name__ == "__main__":
             q.put([['Done']])
     else:
         # single processor
-        for task in trips.to_numpy(): 
-            # task = [1,3,1,'auto',0.12]
-            sp.build(task) 
-            sp.trace(task) 
+        log.info('--- run tasks ---')
+        for task in tgrp.to_numpy(): 
+            t = [task[0], task[1], task[2], np.array(task[3]), np.array(task[4])]
+            # t = [1, 1, 'AUTOVOT1', np.array([549,551,25,49,229,619]), np.array([0.3,0.1,0.3,0.1,0.3,0.1])]
+            # t = [9, 1, 'AUTOVOT1', np.array([571,619]), np.array([0.3,0.1])]
+            nodes = sp.build(t) 
+            sp.trace(t, nodes) 
             
-        vol = sp.get_vol()
+        # vol = sp.get_vol()
 
     if multi_p:
         for p in processes:
@@ -117,10 +131,10 @@ if __name__ == "__main__":
         while not r.empty():
             log.info("{0}".format(r.get()))
         
-        shm.unlink()
+        shm_vol.unlink()
         shm_node.unlink()
         shm_link.unlink()
     t2 = timeit.default_timer()
-    np.savetxt("vol.csv", ndarr, delimiter=",")
+    np.savetxt("vol.csv", ndarr_vol, delimiter=",")
     log.info(f"Run time {t2 - t1:0.2f} seconds")   
-    log.info('### end of run ###')
+    log.info('//--- PyDTA end ---//')

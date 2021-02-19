@@ -24,7 +24,8 @@ cdef class tdsp:
     cdef int num_zones
     cdef int num_links
     cdef int num_time_steps
-    def __init__(self, node_shape, node_type, link_shape, link_type, num_zones, num_time_steps):
+
+    def __init__(self, shm_par, num_zones, num_time_steps):
         log = logging.getLogger(__name__)
         
         t1 = timeit.default_timer()        
@@ -34,8 +35,12 @@ cdef class tdsp:
         self.num_zones = num_zones
         self.num_time_steps = num_time_steps
         
-        # df_node = pd.read_csv(nodefile)
-        # df_link = pd.read_csv(linkfile)
+        #get nodes and links from shared memory
+        node_shape = shm_par[0]
+        node_type = shm_par[1]
+        link_shape = shm_par[2]
+        link_type = shm_par[3]
+  
         shm_node = shared_memory.SharedMemory(name='shared_node')
         shared_node = np.ndarray(node_shape, dtype=node_type, buffer=shm_node.buf)
         df_node = pd.DataFrame(shared_node.copy())
@@ -43,8 +48,8 @@ cdef class tdsp:
         shared_link = np.ndarray(link_shape, dtype=link_type, buffer=shm_link.buf)
         df_link = pd.DataFrame(shared_link.copy())
 
-        df_node.columns = ['N','X','Y','DTA_Type','DNGRP']
-        df_link.columns = ['A','B','DISTANCE','CAPACITY','CAPLN','FTYPE','FFSPEED','ALPHA','BETA','IMPFAC','TOLLSEGNUM','TOLL_POLICY','TOLL','SEG_DISTANCE','Truck','DELAY_FLAG','CAV']
+        df_node.columns = shm_par[4]
+        df_link.columns = shm_par[5]
 
         self.num_nodes = len(df_node)
         self.num_links = len(df_link)
@@ -102,25 +107,31 @@ cdef class tdsp:
             for i in range(num_time_steps):
                 self.links[index].time[i] = t
                 self.links[index].vol[i] = 0
-                
+
+        shm_node.close() 
+        shm_link.close()       
         t2 = timeit.default_timer()  
         log.info(f"Run time for link struct is {t2 - t1:0.2f} seconds")
         
     #build path    
     cpdef build(self, sp_task):
-        # print('build path from ' + str(sp_task[0]) + ' to ' + str(sp_task[1]) + ' ts ' + str(sp_task[2]))
+        # print('--build path from ' + str(sp_task[0]) + ' period ' + str(sp_task[1]) + ' ts ' + str(sp_task[2]))
         cdef hp.heap my_heap = hp.heap(self.num_nodes+1)
-        cdef int o_node_index, d_node_index, start_ts, curr_ts, i, j
+        cdef int o_node_index, start_ts, curr_ts, i, j
         cdef td.node *top_node
         cdef td.node *b_node
         cdef td.node *nd
         cdef td.link *nxlink
         cdef double link_time, imp, new_imp, max_imp = 99999.9
-        
+        cdef int[:] d_nodes
+        cdef double[:] trips
+
         o_node_index = self.node_index[sp_task[0]]
-        d_node_index = self.node_index[sp_task[1]]  
-        start_ts = sp_task[2]
+        d_nodes = sp_task[3]
+        start_ts = sp_task[1]
+
         #initialize
+        d_node_found = []
         for j in range(self.num_nodes):
             self.nodes[j].imp = max_imp
             self.nodes[j].popped = 0
@@ -133,10 +144,18 @@ cdef class tdsp:
         self.nodes[o_node_index].parent = NULL
         my_heap.insert(&self.nodes[o_node_index])
 
-        while not my_heap.is_empty():
+        while not my_heap.is_empty():   #loop till all nodes have been visited
             top_node = my_heap.pop()
             top_node.popped = 1
             # print('--popped node ' + str(top_node.n) + ' imp ' + str(top_node.imp))
+            # check if destination nodes have been found
+            for j in range(len(d_nodes)):
+                if top_node.n == d_nodes[j]:              #a destination node is found
+                    d_node_found.append(top_node.n)
+                    break
+                if len(d_node_found) == len(d_nodes):   #all destination nodes are found
+                    return np.array(d_node_found)
+
             #zones can't be transpassed    
             if top_node.n <= self.num_zones and top_node.ni != o_node_index:
                 continue
@@ -184,25 +203,36 @@ cdef class tdsp:
                     b_node.parent = top_node
                     b_node.parent_link = nxlink
                     b_node.ts = curr_ts
-                    
-                    if b_node.ni == d_node_index:
-                        return
-    
+
+        print('d node not found')            
+        return np.array(d_node_found)
+
     #trace path
-    cpdef trace(self, sp_task):
+    cpdef trace(self, sp_task, d_nodes_found):
         cdef int d_node_index, path_size
         cdef td.node *curr_node
+        cdef int[:] d_nodes
+        cdef double[:] trips
+        
+        d_nodes = sp_task[3]
+        trips = sp_task[4]
+        if len(d_nodes_found) == 0:
+            return
+        for j in range(len(d_nodes)):
+            if (d_nodes[j] in d_nodes_found):
+                d_node_index = self.node_index[d_nodes[j]]
+                curr_node = &self.nodes[d_node_index]
+                # load volume
+                while curr_node.n != sp_task[0]:
+                    curr_node.parent_link.vol[curr_node.ts-1] += trips[j]
+                    curr_node = curr_node.parent
 
-        d_node_index = self.node_index[sp_task[1]]
-        curr_node = &self.nodes[d_node_index]
-        # load volume
-        while curr_node.n != sp_task[0]:
-            curr_node.parent_link.vol[curr_node.ts] += sp_task[4]
-            curr_node = curr_node.parent
-
-
-        d_node = &self.nodes[d_node_index]    
-        # print('skim time ' + str(d_node.time) + ' dist ' + str(d_node.dist))
+                # d_node = &self.nodes[d_node_index]    
+                # print('path from ' + str(sp_task[0]) + ' to ' + str(d_node.n) + ' skim time ' + str(d_node.time) + ' dist ' + str(d_node.dist))
+            else:
+                print(d_nodes_found)
+                print('path from ' + str(sp_task[0]) + ' to ' + str(d_nodes[j]) + ' not found')
+        
         return (curr_node.time, curr_node.dist)
     
     cpdef get_vol(self):
