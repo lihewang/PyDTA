@@ -113,7 +113,7 @@ cdef class tdsp:
         t2 = timeit.default_timer()  
         log.info(f"Run time for link struct is {t2 - t1:0.2f} seconds")
         
-    #build path    
+    #build one-to-many shourtest path    
     cpdef build(self, sp_task):
         # print('--build path from ' + str(sp_task[0]) + ' period ' + str(sp_task[1]) + ' ts ' + str(sp_task[2]))
         cdef hp.heap my_heap = hp.heap(self.num_nodes+1)
@@ -126,7 +126,9 @@ cdef class tdsp:
         cdef int[:] d_nodes
         cdef double[:] trips
 
-        o_node_index = self.node_index[sp_task[0]]
+        o_node_index = self.node_index.get(sp_task[0], -1)
+        if o_node_index == -1:
+            return np.array([])
         d_nodes = sp_task[3]
         start_ts = sp_task[1]
 
@@ -144,16 +146,16 @@ cdef class tdsp:
         self.nodes[o_node_index].parent = NULL
         my_heap.insert(&self.nodes[o_node_index])
 
-        while not my_heap.is_empty():   #loop till all nodes have been visited
+        while not my_heap.is_empty():                       #loop till all nodes have been visited
             top_node = my_heap.pop()
             top_node.popped = 1
             # print('--popped node ' + str(top_node.n) + ' imp ' + str(top_node.imp))
             # check if destination nodes have been found
             for j in range(len(d_nodes)):
-                if top_node.n == d_nodes[j]:              #a destination node is found
+                if top_node.n == d_nodes[j]:                #a destination node is found
                     d_node_found.append(top_node.n)
                     break
-                if len(d_node_found) == len(d_nodes):   #all destination nodes are found
+                if len(d_node_found) == len(d_nodes):       #all destination nodes are found
                     return np.array(d_node_found)
 
             #zones can't be transpassed    
@@ -204,7 +206,10 @@ cdef class tdsp:
                     b_node.parent_link = nxlink
                     b_node.ts = curr_ts
 
-        print('d node not found')            
+        #print('d nodes to build path') 
+        #for j in range(len(d_nodes)):
+        #    print(d_nodes[j])
+        #print('d_node found ' + str(d_node_found))           
         return np.array(d_node_found)
 
     #trace path

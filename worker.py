@@ -8,6 +8,7 @@ import logging
 import yaml as ym
 import tdsp
 import numpy as np
+import pandas as pd
 from multiprocessing import Process, shared_memory
 
 def worker(job_queue, r_queue, i, shm_par):
@@ -18,21 +19,25 @@ def worker(job_queue, r_queue, i, shm_par):
     num_zones = par['num_processor']
     num_time_steps = par['num_time_steps']
 
-    d = 0   #done
+    # d = 0   #done
     sp = tdsp.tdsp(shm_par, num_zones, num_time_steps)
     try:
         while True :              
-            tasks = job_queue.get() #array of task as ['I','period','class',['dest'],['trip']]             
-            for task in tasks: #build task for one-to-many path building
-                if task[0] == 'Done':
-                    d = 1
-                    break
+            tasks = job_queue.get() 
+            if tasks.empty:
+                break
+            tgrp = tasks.groupby(['I','period','class']).agg({'J':list, 'trip':list})
+            tgrp.reset_index(inplace=True)           
+            for task in tgrp.to_numpy():        #build task for one-to-many path building
+                # if task[0] == 'Done':
+                #     d = 1
+                #     break
                 t = [task[0], task[1], task[2], np.array(task[3]), np.array(task[4])]
                 nodes = sp.build(t) 
                 sp.trace(t, nodes)
                     
-            if d == 1:
-                break
+            # if d == 1:
+            #     break
     except:
          logging.exception("message")       
     vol = sp.get_vol()
