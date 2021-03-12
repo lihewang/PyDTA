@@ -47,7 +47,7 @@ cdef class tdsp:
         shm_link = shared_memory.SharedMemory(name='shared_link')
         shared_link = np.ndarray(link_shape, dtype=link_type, buffer=shm_link.buf)
         df_link = pd.DataFrame(shared_link.copy())
-
+        
         df_node.columns = shm_par[4]
         df_link.columns = shm_par[5]
 
@@ -100,6 +100,9 @@ cdef class tdsp:
 
             self.links[index].dist = row['DISTANCE']
             self.links[index].ffspd = row['FFSPEED']
+            self.links[index].capacity = row['CAPACITY']
+            self.links[index].alpha = row['ALPHA']
+            self.links[index].beta = row['BETA']
             #time for time steps
             self.links[index].time = <double*>self.mem.alloc(num_time_steps, sizeof(double))
             self.links[index].vol = <double*>self.mem.alloc(num_time_steps, sizeof(double))
@@ -235,7 +238,7 @@ cdef class tdsp:
                 # d_node = &self.nodes[d_node_index]    
                 # print('path from ' + str(sp_task[0]) + ' to ' + str(d_node.n) + ' skim time ' + str(d_node.time) + ' dist ' + str(d_node.dist))
             else:
-                print(d_nodes_found)
+                # print(d_nodes_found)
                 print('path from ' + str(sp_task[0]) + ' to ' + str(d_nodes[j]) + ' not found')
         
         return (curr_node.time, curr_node.dist)
@@ -252,4 +255,8 @@ cdef class tdsp:
         
         return vol
 
- 
+    cpdef update_time(self, shared_vol):
+        for i in range(self.num_links):
+            for j in range(self.num_time_steps):
+                self.links[i].time[j] = self.links[i].dist/self.links[i].ffspd*60* \
+                    (1+self.links[i].alpha*(shared_vol[i][j]/self.links[i].capacity*4)**self.links[i].beta)

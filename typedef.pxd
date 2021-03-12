@@ -7,7 +7,7 @@ Created on Tue Jan 26 14:32:08 2021
 
 
 cdef struct node:
-    unsigned int n, ni, num_nxlinks
+    int n, ni, num_nxlinks
     bint popped
     double imp, time, dist, toll, node_time
     int ts
@@ -16,7 +16,7 @@ cdef struct node:
     link* parent_link
     
 cdef struct link:
-    unsigned int a, b, ai, bi
-    double dist, ffspd, toll
+    int a, b, ai, bi
+    double dist, ffspd, toll, capacity, alpha, beta
     double *time
     double *vol
