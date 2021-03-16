@@ -246,13 +246,26 @@ cdef class tdsp:
     cpdef get_vol(self):
         cdef int i
         cdef td.link *link
-        
+        cdef int iter_smooth = 6
+
         vol = np.zeros((self.num_links, self.num_time_steps))
+        vol_smth = np.zeros((self.num_links, self.num_time_steps))
 
         for i in range(self.num_links):
             for j in range(self.num_time_steps):
-                vol[i][j]=self.links[i].vol[j]  
-        
+                vol[i][j]=self.links[i].vol[j] 
+
+        # smoothing
+        for iter_s in range(iter_smooth):
+            for col in range(self.num_time_steps):                
+                pre = col - 1
+                if pre < 1:
+                    pre = self.num_time_steps-1
+                aft = col + 1
+                if aft > self.num_time_steps-1:
+                    aft = 1
+                vol_smth[:,col] = vol[:,pre]*0.2 + vol[:,aft]*0.2 + vol[:,col]*0.6
+            vol = np.copy(vol_smth)
         return vol
 
     cpdef update_time(self, shared_vol):

@@ -24,12 +24,13 @@ class worker(Process):
         self.shm_par = shm_par
         self.i = i
         self.iter = iter
+
     def run(self):
         try:
             sp = tdsp.tdsp(self.shm_par, self.num_zones, self.num_time_steps)
             shm = shared_memory.SharedMemory(name='shared_vol')
             shared_vol = np.ndarray((self.shm_par[2][0], self.num_time_steps), dtype=np.dtype(np.float32), buffer=shm.buf) 
-
+            factor = 1 - 1/self.iter
             if self.iter > 1:    #update time
                 sp.update_time(shared_vol)
 
@@ -37,8 +38,9 @@ class worker(Process):
                 tasks = self.job_queue.get()
 
                 if tasks.empty:                 #run finished
-                    vol = sp.get_vol()                           
-                    shared_vol = shared_vol*(1-1/iter) + vol*(1/iter)
+                    vol = sp.get_vol()                                           
+                    shared_vol *= factor
+                    shared_vol += vol*(1/self.iter)
                     break
 
                 tgrp = tasks.groupby(['I','period','class']).agg({'J':list, 'trip':list})
