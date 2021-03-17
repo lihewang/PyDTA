@@ -83,7 +83,7 @@ if __name__ == "__main__":
     #drop rows of zero trip and intrazonal trips
     trips.drop(trips[trips['trip'] == 0].index, inplace=True)
     trips.drop(trips[trips['I'] == trips['J']].index, inplace=True)
-    # trips = trips[:20000]
+    # trips = trips[:20]
 
     iter = 1
     while iter <= par['max_iter']:
@@ -102,6 +102,7 @@ if __name__ == "__main__":
             sp = tdsp.tdsp(shm_par, par['num_zones'], par['num_time_steps'])
     
         if multi_p:
+            ndarr_vol *= float(1 - 1/iter)  #MSA
             #send task in batch
             log.info('--- iter ' + str(iter) + ': distribute tasks ---')
             num_trips = len(trips)
