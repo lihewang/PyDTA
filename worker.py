@@ -11,7 +11,7 @@ import tdsp
 import numpy as np
 import pandas as pd
 from multiprocessing import Process, shared_memory
-
+import timeit
 class worker(Process):
 
     def __init__ (self, job_queue, rtn_queue, i, shm_par, par, iter):
@@ -28,12 +28,13 @@ class worker(Process):
     def run(self):
         try:
             sp = tdsp.tdsp(self.shm_par, self.num_zones, self.num_time_steps)
+            
             shm = shared_memory.SharedMemory(name='shared_vol')
             shared_vol = np.ndarray((self.shm_par[2][0], self.num_time_steps), dtype=np.dtype(np.float32), buffer=shm.buf) 
 
             if self.iter > 1:    #update time
                 sp.update_time(shared_vol)
-
+            t1 = timeit.default_timer()
             while True :              
                 tasks = self.job_queue.get()
 
@@ -45,10 +46,11 @@ class worker(Process):
                 tgrp = tasks.groupby(['I','period','class']).agg({'J':list, 'trip':list})
                 tgrp.reset_index(inplace=True)           
                 for task in tgrp.to_numpy():        #build task for one-to-many path building
-                    t = [task[0], task[1], task[2], np.array(task[3]), np.array(task[4])]
-                    nodes = sp.build(t) 
+                    t = [task[0], task[1], task[2], np.array(task[3], dtype='i'), np.array(task[4])]                   
+                    nodes = sp.build(t)                    
                     sp.trace(t, nodes)
-
+            t2 = timeit.default_timer()
+            print(f"Run time path builder {t2 - t1:0.2f} seconds", flush=True) 
         except:
             logging.exception("message")   
                 

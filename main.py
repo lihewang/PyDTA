@@ -16,8 +16,10 @@ import numpy as np
 import timeit
 import time
 from multiprocessing import Process, Queue, shared_memory
+from read_network_snowflake import read
+from read_trips_snowflake import read_trips
+from write_output_snowflake import save_vol
 import worker
-from read_network import read
 import tdsp
 from importlib import reload
 
@@ -42,9 +44,9 @@ def set_log(file_name):
     
 if __name__ == "__main__":  
         
-    with open(r'..\Data\control.yaml') as file:
+    with open('/app/control.yaml') as file:
         par = ym.full_load(file)
-        
+      
     #set logging
     log = set_log(par['log_file'])    
     log.info('//--- PyDTA start ---//') 
@@ -72,9 +74,10 @@ if __name__ == "__main__":
     shm_vol = shared_memory.SharedMemory(name='shared_vol', create=True, size=arr_v.nbytes)
     ndarr_vol = np.ndarray(arr_v.shape, dtype=np.dtype(np.float32), buffer=shm_vol.buf)
     ndarr_vol[:] = arr_v[:]
-
+    
     log.info('--- read trips ---')
-    trips = pd.read_csv(par['trip_file'], skiprows=par['skip_rows'])
+    #trips = pd.read_csv(par['trip_file'], skiprows=par['skip_rows'])
+    trips = read_trips('Subarea_Trips')
     trips.set_index(par['index_column_names'], inplace=True) 
     #stack trip classes    
     trips = pd.DataFrame(trips.stack())
@@ -83,8 +86,8 @@ if __name__ == "__main__":
     #drop rows of zero trip and intrazonal trips
     trips.drop(trips[trips['trip'] == 0].index, inplace=True)
     trips.drop(trips[trips['I'] == trips['J']].index, inplace=True)
-    # trips = trips[:20]
-
+    trips = trips[:2000]
+    
     iter = 1
     while iter <= par['max_iter']:
         if multi_p:
@@ -155,7 +158,8 @@ if __name__ == "__main__":
     # for i in range( par['num_time_steps']):
     #     df_vol['t'+str(i+1)] = df_vol['FFTIME'] * (1+df_vol['ALPHA']*np.power((df_vol['vol'+str(i+1)]/df_vol['CAPACITY']*4),df_vol['BETA']))
 
-    df_vol.to_csv('vol.csv', index=False)
-
+    df_vol.to_csv('/output/Volume.csv', index=False)
+    save_vol()
     log.info(f"Run time {t2 - t1:0.2f} seconds")   
+
     log.info('//--- PyDTA end ---//')
