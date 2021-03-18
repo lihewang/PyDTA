@@ -42,7 +42,7 @@ def set_log(file_name):
     
 if __name__ == "__main__":  
         
-    with open(r'..\Data\control.yaml') as file:
+    with open(r'..\Data\Bench\control.yaml') as file:
         par = ym.full_load(file)
         
     #set logging
@@ -75,6 +75,7 @@ if __name__ == "__main__":
 
     log.info('--- read trips ---')
     trips = pd.read_csv(par['trip_file'], skiprows=par['skip_rows'])
+    '''
     trips.set_index(par['index_column_names'], inplace=True) 
     #stack trip classes    
     trips = pd.DataFrame(trips.stack())
@@ -84,7 +85,7 @@ if __name__ == "__main__":
     trips.drop(trips[trips['trip'] == 0].index, inplace=True)
     trips.drop(trips[trips['I'] == trips['J']].index, inplace=True)
     # trips = trips[:20]
-
+    '''
     iter = 1
     while iter <= par['max_iter']:
         if multi_p:
