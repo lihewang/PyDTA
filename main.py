@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+#cython: language_level=3
 """
 Created on Wed Jan 27 2021
 @author: Lihe Wang  
@@ -86,7 +87,7 @@ if __name__ == "__main__":
     #drop rows of zero trip and intrazonal trips
     trips.drop(trips[trips['trip'] == 0].index, inplace=True)
     trips.drop(trips[trips['I'] == trips['J']].index, inplace=True)
-    trips = trips[:2000]
+    # trips = trips[:2000]
     
     iter = 1
     while iter <= par['max_iter']:
@@ -154,9 +155,6 @@ if __name__ == "__main__":
         col_name.append('vol'+str(i+1))
     df_arr = pd.DataFrame(ndarr_vol,columns=col_name)
     df_vol = pd.concat([df_ab, df_arr], axis=1)
-    # congested time
-    # for i in range( par['num_time_steps']):
-    #     df_vol['t'+str(i+1)] = df_vol['FFTIME'] * (1+df_vol['ALPHA']*np.power((df_vol['vol'+str(i+1)]/df_vol['CAPACITY']*4),df_vol['BETA']))
 
     df_vol.to_csv('/output/Volume.csv', index=False)
     save_vol()
