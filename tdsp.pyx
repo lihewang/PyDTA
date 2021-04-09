@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-#cython: language_level=3
+
 """
 Created on Wed Jan 27 09:13:49 2021
 
@@ -25,32 +25,32 @@ cdef class tdsp:
     cdef int num_links
     cdef int num_time_steps
 
-    def __init__(self, shm_par, num_zones, num_time_steps):
+    def __init__(self, shm_par, par):
         log = logging.getLogger(__name__)
-        
         t1 = timeit.default_timer()        
         cdef int i, link_index
         cdef double t
         self.mem = Pool()
-        self.num_zones = num_zones
-        self.num_time_steps = num_time_steps
+        self.num_zones = par['num_zones']
+        self.num_time_steps = par['num_time_steps']
         
         #get nodes and links from shared memory
         node_shape = shm_par[0]
         node_type = shm_par[1]
         link_shape = shm_par[2]
         link_type = shm_par[3]
-  
+
         shm_node = shared_memory.SharedMemory(name='shared_node')
         shared_node = np.ndarray(node_shape, dtype=node_type, buffer=shm_node.buf)
         df_node = pd.DataFrame(shared_node.copy())
+        
         shm_link = shared_memory.SharedMemory(name='shared_link')
         shared_link = np.ndarray(link_shape, dtype=link_type, buffer=shm_link.buf)
         df_link = pd.DataFrame(shared_link.copy())
-        
+
         df_node.columns = shm_par[4]
         df_link.columns = shm_par[5]
-
+        
         self.num_nodes = len(df_node)
         self.num_links = len(df_link)
         self.nodes = <td.node*>self.mem.alloc(self.num_nodes, sizeof(td.node))
@@ -104,10 +104,10 @@ cdef class tdsp:
             self.links[index].alpha = row['ALPHA']
             self.links[index].beta = row['BETA']
             #time for time steps
-            self.links[index].time = <double*>self.mem.alloc(num_time_steps, sizeof(double))
-            self.links[index].vol = <double*>self.mem.alloc(num_time_steps, sizeof(double))
+            self.links[index].time = <double*>self.mem.alloc(self.num_time_steps, sizeof(double))
+            self.links[index].vol = <double*>self.mem.alloc(self.num_time_steps, sizeof(double))
             t = row['DISTANCE']/row['FFSPEED']*60       
-            for i in range(num_time_steps):
+            for i in range(self.num_time_steps):
                 self.links[index].time[i] = t
                 self.links[index].vol[i] = 0
 
