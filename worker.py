@@ -24,27 +24,29 @@ class worker(Process):
         self.shm_par = shm_par
         self.i = i
         self.iter = iter
+        self.par = par
 
     def run(self):
         try:
-            sp = tdsp.tdsp(self.shm_par, self.num_zones, self.num_time_steps)
+            sp = tdsp.tdsp(self.shm_par, self.par)
             
             shm = shared_memory.SharedMemory(name='shared_vol')
             shared_vol = np.ndarray((self.shm_par[2][0], self.num_time_steps), dtype=np.dtype(np.float32), buffer=shm.buf) 
-
+            count = 0
             if self.iter > 1:    #update time
                 sp.update_time(shared_vol)
             t1 = timeit.default_timer()
             while True :              
                 tasks = self.job_queue.get()
-
+                
                 if tasks.empty:                         #run finished
                     vol = sp.get_vol() 
                     shared_vol += vol*(1/self.iter)     #MSA
                     break
 
                 tgrp = tasks.groupby(['I','period','class']).agg({'J':list, 'trip':list})
-                tgrp.reset_index(inplace=True)           
+                tgrp.reset_index(inplace=True)  
+                count += len(tgrp)         
                 for task in tgrp.to_numpy():        #build task for one-to-many path building
                     t = [task[0], task[1], task[2], np.array(task[3], dtype='i'), np.array(task[4])]                   
                     nodes = sp.build(t)                    
@@ -54,7 +56,7 @@ class worker(Process):
         except:
             logging.exception("message")   
                 
-        self.rtn_queue.put('processor ' + str(self.i))
+        self.rtn_queue.put('processor ' + str(self.i) + ' number of paths built ' + str(count))
         shm.close() 
 
                      

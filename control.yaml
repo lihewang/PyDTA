@@ -1,17 +1,19 @@
 # Control file
-num_processor: 2
-task_size: 500
+num_processor: 12
+task_size: 10000
 num_time_steps: 96
 max_iter: 1
 # input files
-#link_file: ../Data/LINK.CSV
+#link_file: Data/LINK.CSV
+data_base: REGION_MODEL
 link_file: LINK
 index_column_names: ['ORG','DES','PERIOD']
 #index_column_names: ['I','J','period']
-skip_rows: 1
-#node_file: ../Data/NODE.CSV
+skip_rows: 0
+#node_file: Data/NODE.CSV
 node_file: NODE
-trip_file: ../Data/Subarea_Trips.csv
+#trip_file: Data/Regional/Trips.csv
+trip_file: TRIPS
 # output files
 log_file: log_file.log
 num_zones: 4584
@@ -22,14 +24,10 @@ vot:                         #dollar per hour
     vot4: 25.86
     vot5: 55.10
 link_closure:
-    policy_1:
-        - class: SOV
-          time: 
-              - from: 22
-                to: 36
-        - class: HOV2
-          time: 
-              - from: 22
-                to: 36
+    - policy:
+        number: 1
+decision_node_type: 91
+entry_link_type: 95
+exit_link_type: 96
             
     

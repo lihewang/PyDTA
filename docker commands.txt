@@ -1,0 +1,14 @@
+#remove exited docker containers
+docker rm $(docker ps --filter status=exited -q)
+
+#remove images
+docker rmi $(docker images -q --filter "dangling=true")
+
+#build images
+docker build -t pydta .
+
+#run images
+docker run pydta
+
+#list images
+docker images

@@ -17,7 +17,8 @@ import numpy as np
 import timeit
 import time
 from multiprocessing import Process, Queue, shared_memory
-from read_network_snowflake import read
+from read_control_s3 import read_control
+from read_network_snowflake import read_network
 from read_trips_snowflake import read_trips
 from write_output_snowflake import save_vol
 import worker
@@ -44,8 +45,10 @@ def set_log(file_name):
     return log
     
 if __name__ == "__main__":  
-        
+
+    # read_control()    
     with open('/app/control.yaml') as file:
+    # with open('C:/Users/lihe.wang/Documents/PyDTA/Code/control.yaml') as file:
         par = ym.full_load(file)
       
     #set logging
@@ -58,7 +61,7 @@ if __name__ == "__main__":
     t1 = timeit.default_timer()
     
     # read network files to shared memory
-    shm, shm_par  = read(par['node_file'], par['link_file'])
+    shm, shm_par  = read_network(par['data_base'], par['node_file'], par['link_file'])
     shm_node = shm[0] 
     shm_link = shm[1]
     #create shared memory for volume    
@@ -76,19 +79,23 @@ if __name__ == "__main__":
     ndarr_vol = np.ndarray(arr_v.shape, dtype=np.dtype(np.float32), buffer=shm_vol.buf)
     ndarr_vol[:] = arr_v[:]
     
-    log.info('--- read trips ---')
-    #trips = pd.read_csv(par['trip_file'], skiprows=par['skip_rows'])
-    trips = read_trips('Subarea_Trips')
+    log.info('--- read ' + par['trip_file'] + ' from ' + par['data_base'] + ' ---')
+    # trips = pd.read_csv('C:/Users/lihe.wang/Documents/PyDTA/Data/Regional/Trips.csv', skiprows=par['skip_rows'])
+    trips = read_trips(par['data_base'], par['trip_file'])
+    log.info('--- retrieved ' + str(len(trips)) + ' rows ---')
+    trips = trips[:2000000] 
+    log.info('--- process ' + str(len(trips)) + ' rows ---')
+    trips.drop(trips[trips[par['index_column_names'][0]] == trips[par['index_column_names'][1]]].index, inplace=True) 
     trips.set_index(par['index_column_names'], inplace=True) 
-    #stack trip classes    
+    log.info('--- dropped intrazonal trips ' + str(len(trips)) + ' rows ---')
+    #stack trip classes       
     trips = pd.DataFrame(trips.stack())
-    trips.reset_index(inplace=True)
-    trips.columns = ['I','J','period','class','trip'] 
-    #drop rows of zero trip and intrazonal trips
-    trips.drop(trips[trips['trip'] == 0].index, inplace=True)
-    trips.drop(trips[trips['I'] == trips['J']].index, inplace=True)
-    # trips = trips[:2000]
-    
+    log.info('--- stacked trips ---')
+    trips.reset_index(inplace=True)         
+    trips.columns = ['I','J','period','class','trip']
+    #drop rows of zero trip
+    trips.drop(trips[trips['trip'] == 0].index, inplace=True) 
+    log.info('--- load trips to ' + str(par['num_processor']) + ' processors ---')
     iter = 1
     while iter <= par['max_iter']:
         if multi_p:
@@ -101,7 +108,8 @@ if __name__ == "__main__":
                 p=worker.worker(q_task, q_rtn, i, shm_par, par, iter)
                 time.sleep(1.5)
                 p.start()
-                processes.append(p)  
+                processes.append(p) 
+                log.info('processor ' + str(i) + ' started') 
         else:
             sp = tdsp.tdsp(shm_par, par['num_zones'], par['num_time_steps'])
     
@@ -157,7 +165,7 @@ if __name__ == "__main__":
     df_vol = pd.concat([df_ab, df_arr], axis=1)
 
     df_vol.to_csv('/output/Volume.csv', index=False)
-    save_vol()
+    save_vol(par['data_base'])
     log.info(f"Run time {t2 - t1:0.2f} seconds")   
 
-    log.info('//--- PyDTA end ---//')
+    log.info('//--- PyDTA end //---//')

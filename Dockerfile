@@ -1,8 +1,8 @@
 #main image
 FROM python:3.8.8-slim AS main
 RUN apt-get update && apt-get -y install gcc
-RUN pip install pandas
 RUN pip install cython
+RUN pip install pandas
 RUN pip install cymem
 RUN pip install pyyaml
 RUN python -m pip install --upgrade pip
@@ -16,6 +16,7 @@ COPY heap.pyx /app/
 COPY heap.pxd /app/
 COPY typedef.pxd /app/
 COPY tdsp.pyx /app/
+COPY read_control_s3.py /app/
 COPY read_network_snowflake.py /app/
 COPY read_trips_snowflake.py /app/
 COPY write_output_snowflake.py /app/
