@@ -18,7 +18,7 @@ vol_format = 'UTIL.PUBLIC.CSV_FORMAT'
 def save_vol():
     ctx = snowflake.connector.connect(
         user='lihewang',
-        password='Ui123456',
+        password='******',
         account='eya42508.us-east-1',
         warehouse='COMPUTE_WH',
         database='TEST',
