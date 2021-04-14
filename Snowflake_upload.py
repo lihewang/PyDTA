@@ -32,7 +32,7 @@ def upload(cs, file_path, table_name, field, file_format):
 # upload file
 ctx = snowflake.connector.connect(
     user='lihewang',
-    password='Ui123456',
+    password='*****',
     account='eya42508.us-east-1',
     warehouse='COMPUTE_WH',
     database='TEST',
