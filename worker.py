@@ -52,11 +52,12 @@ class worker(Process):
                     nodes = sp.build(t)                    
                     sp.trace(t, nodes)
             t2 = timeit.default_timer()
-            print(f"Run time path builder {t2 - t1:0.2f} seconds", flush=True) 
+            time_length = round(t2 - t1, 1)
+            # print(f"Run time path builder {t2 - t1:0.2f} seconds", flush=True) 
         except:
             logging.exception("message")   
                 
-        self.rtn_queue.put('processor ' + str(self.i) + ' number of paths built ' + str(count))
+        self.rtn_queue.put('processor ' + str(self.i) + ' number of paths built ' + str(count) + ' time ' + str(time_length) + ' seconds')
         shm.close() 
 
                      

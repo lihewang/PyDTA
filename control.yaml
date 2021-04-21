@@ -1,19 +1,18 @@
 # Control file
-num_processor: 12
-task_size: 10000
-num_time_steps: 96
+num_processor: 96
+task_size: 30000
+num_time_steps: 24
 max_iter: 1
 # input files
 #link_file: Data/LINK.CSV
-data_base: REGION_MODEL
+data_base: TSM_MODEL
 link_file: LINK
-index_column_names: ['ORG','DES','PERIOD']
-#index_column_names: ['I','J','period']
+trip_column_names: ['period','I','J','class','trip']
 skip_rows: 0
 #node_file: Data/NODE.CSV
 node_file: NODE
 #trip_file: Data/Regional/Trips.csv
-trip_file: TRIPS
+trip_file: TRIP_TABLE_CAV_50PCT
 # output files
 log_file: log_file.log
 num_zones: 4584

@@ -8,7 +8,7 @@ ctx = snowflake.connector.connect(
     password='Ui123456',
     account='eya42508.us-east-1',
     warehouse='COMPUTE_WH',
-    database='REGION_MODEL',
+    database='TSM_MODEL',
     schema='PUBLIC'
     )
 cur = ctx.cursor()
@@ -16,4 +16,4 @@ cur = ctx.cursor()
 sql = "select * from " + table_name
 cur.execute(sql)
 df_vol = cur.fetch_pandas_all()
-df_vol.to_csv('Output/vol_sf1.csv', index=False)
+df_vol.to_csv('Output/vol_TSM.csv', index=False)
