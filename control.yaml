@@ -1,0 +1,32 @@
+# Control file
+num_processor: 96
+task_size: 30000
+num_time_steps: 24
+max_iter: 1
+# input files
+#link_file: Data/LINK.CSV
+data_base: TSM_MODEL
+link_file: LINK
+trip_column_names: ['period','I','J','class','trip']
+skip_rows: 0
+#node_file: Data/NODE.CSV
+node_file: NODE
+#trip_file: Data/Regional/Trips.csv
+trip_file: TRIP_TABLE_CAV_50PCT
+# output files
+log_file: log_file.log
+num_zones: 4584
+vot:                         #dollar per hour
+    vot1: 4.17
+    vot2: 9.68
+    vot3: 16.07
+    vot4: 25.86
+    vot5: 55.10
+link_closure:
+    - policy:
+        number: 1
+decision_node_type: 91
+entry_link_type: 95
+exit_link_type: 96
+            
+    
