@@ -17,7 +17,7 @@ import numpy as np
 import timeit
 import time
 from multiprocessing import Process, Queue, shared_memory
-from read_control_s3 import read_control
+from read_ctl_s3 import read_control
 from read_network_snowflake import read_network
 from read_trips_snowflake import read_trips
 from write_output_snowflake import save_vol
@@ -46,10 +46,9 @@ def set_log(file_name):
     
 if __name__ == "__main__":  
 
-    # read_control()    
-    # with open('/app/control.yaml') as file:
-    with open('app/control.yaml') as file:
-        par = ym.full_load(file)
+    par = read_control()    
+    # with open('app/control.yaml') as file:
+    #    par = ym.full_load(file)
       
     #set logging
     log = set_log(par['log_file'])    

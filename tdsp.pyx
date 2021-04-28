@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+#cython: language_level=3
 """
 Created on Wed Jan 27 09:13:49 2021
 
@@ -103,6 +103,7 @@ cdef class tdsp:
             self.links[index].capacity = row['CAPACITY']
             self.links[index].alpha = row['ALPHA']
             self.links[index].beta = row['BETA']
+            self.links[index].toll = row['TOLL']
             #time for time steps
             self.links[index].time = <double*>self.mem.alloc(self.num_time_steps, sizeof(double))
             self.links[index].vol = <double*>self.mem.alloc(self.num_time_steps, sizeof(double))
@@ -118,7 +119,7 @@ cdef class tdsp:
         
     #build one-to-many shourtest path    
     cpdef build(self, sp_task):
-        # print('--build path from ' + str(sp_task[0]) + ' period ' + str(sp_task[1]) + ' ts ' + str(sp_task[2]))
+        # print('--build path from ' + str(sp_task[0]) + ' period ' + str(sp_task[1]) + ' class ' + str(sp_task[2]))
         cdef hp.heap my_heap = hp.heap(self.num_nodes+1)
         cdef int o_node_index, start_ts, curr_ts, i, j
         cdef td.node *top_node
@@ -182,7 +183,7 @@ cdef class tdsp:
                     continue
                 
                 link_time = nxlink.time[curr_ts]
-                imp = link_time #+ 0.2 * nxlink.toll
+                imp = link_time + sp_task[5] * nxlink.toll
                
                 #Update node impedance
                 new_imp = top_node.imp + imp
@@ -237,9 +238,9 @@ cdef class tdsp:
 
                 # d_node = &self.nodes[d_node_index]    
                 # print('path from ' + str(sp_task[0]) + ' to ' + str(d_node.n) + ' skim time ' + str(d_node.time) + ' dist ' + str(d_node.dist))
-            else:
+            # else:
                 # print(d_nodes_found)
-                print('path from ' + str(sp_task[0]) + ' to ' + str(d_nodes[j]) + ' not found')
+                # print('path from ' + str(sp_task[0]) + ' to ' + str(d_nodes[j]) + ' not found')
         
         return (curr_node.time, curr_node.dist)
     

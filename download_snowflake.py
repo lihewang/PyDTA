@@ -1,3 +1,6 @@
+"""
+Utility program, not used in the model
+"""
 import numpy as np
 import pandas as pd
 import snowflake.connector
@@ -16,4 +19,4 @@ cur = ctx.cursor()
 sql = "select * from " + table_name
 cur.execute(sql)
 df_vol = cur.fetch_pandas_all()
-df_vol.to_csv('Output/vol_TSM.csv', index=False)
+df_vol.to_csv('Output/vol_TSM_i4_toll.csv', index=False)

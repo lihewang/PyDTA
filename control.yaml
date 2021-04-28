@@ -1,5 +1,5 @@
 # Control file
-num_processor: 96
+num_processor: 64
 task_size: 30000
 num_time_steps: 24
 max_iter: 1
@@ -17,11 +17,16 @@ trip_file: TRIP_TABLE_CAV_50PCT
 log_file: log_file.log
 num_zones: 4584
 vot:                         #dollar per hour
-    vot1: 4.17
-    vot2: 9.68
-    vot3: 16.07
-    vot4: 25.86
-    vot5: 55.10
+    RES_H: 34.88
+    RES_L: 6.00
+    RES_M: 12.00
+    VIS: 15.97
+    TRK: 8.00
+    RES_HA: 24.92
+    RES_LA: 4.29
+    RES_MA: 8.57
+    VISA: 11.41
+    TRKA: 5.71
 link_closure:
     - policy:
         number: 1

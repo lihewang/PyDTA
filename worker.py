@@ -47,8 +47,9 @@ class worker(Process):
                 tgrp = tasks.groupby(['I','period','class']).agg({'J':list, 'trip':list})
                 tgrp.reset_index(inplace=True)  
                 count += len(tgrp)         
-                for task in tgrp.to_numpy():        #build task for one-to-many path building
-                    t = [task[0], task[1], task[2], np.array(task[3], dtype='i'), np.array(task[4])]                   
+                for task in tgrp.to_numpy():                           #build task for one-to-many path building
+                    ctoll = 1/(self.par['vot'][task[2]]/60)            #minute per dollar
+                    t = [task[0], task[1], task[2], np.array(task[3], dtype='i'), np.array(task[4]), ctoll]                   
                     nodes = sp.build(t)                    
                     sp.trace(t, nodes)
             t2 = timeit.default_timer()
