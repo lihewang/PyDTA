@@ -9,7 +9,7 @@ import boto3
 if __name__ == "__main__":
 
     s3 = boto3.resource('s3')
-    data = open('Code/control.yaml', 'rb')
+    data = open('control.yaml', 'rb')
     s3.Bucket('cf-model-poc').put_object(Key='control.yaml', Body=data) 
 
     
