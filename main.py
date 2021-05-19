@@ -70,14 +70,16 @@ if __name__ == "__main__":
     log.info('--- retrieved network number of links ' + str(len(df_link)) + ' ---')
     df_link.columns = shm_par[5]
     df_ab = df_link[['A','B']] 
-    df_cgspd = df_link[['CAPACITY', 'ALPHA', 'BETA']]  
-    arr_v = np.zeros((len(df_link), par['num_time_steps']))           
+    df_cgspd = df_link[['CAPACITY', 'ALPHA', 'BETA']] 
+    trip_cls = list(par['vot'].keys())      # get trip classes 
+    arr_v = np.zeros((len(trip_cls), len(df_link), par['num_time_steps']))           
     shm_vol = shared_memory.SharedMemory(name='shared_vol', create=True, size=arr_v.nbytes)   
     ndarr_vol = np.ndarray(arr_v.shape, dtype=np.dtype(np.float32), buffer=shm_vol.buf)
     ndarr_vol[:] = arr_v[:]
     log.info('--- read ' + par['trip_file'] + ' from ' + par['data_base'] + ' ---')
     # trips = pd.read_csv('C:/Users/lihe.wang/Documents/PyDTA/Data/Regional/Trips.csv', skiprows=par['skip_rows'])
-    trips = read_trips(par['data_base'], par['trip_file'])
+    trips = read_trips(par['data_base'], par['trip_file'], trip_cls)
+    # trips = trips.head(2000)
     log.info('--- retrieved trips ' + str(len(trips)) + ' rows ---')
     trips.columns = par['trip_column_names']
     log.info('--- load trips to ' + str(par['num_processor']) + ' processors ---')
@@ -127,16 +129,25 @@ if __name__ == "__main__":
     shm_vol.unlink()
     shm_node.unlink()
     shm_link.unlink()
-    t2 = timeit.default_timer()
-
+    # write outputs
     col_name = []
     for i in range(par['num_time_steps']):
         col_name.append('vol'+str(i+1))
-    df_arr = pd.DataFrame(ndarr_vol,columns=col_name)
-    df_vol = pd.concat([df_ab, df_arr], axis=1)
+    trip_cls = list(par['vot'].keys()) # get trip classes
+    df_vol_tot = pd.DataFrame(np.zeros((len(df_link), par['num_time_steps'])), columns=col_name)
+    for i in range(len(trip_cls)):
+        df_arr = pd.DataFrame(ndarr_vol[i], columns=col_name)
+        df_vol = pd.concat([df_ab, df_arr], axis=1)
 
-    df_vol.to_csv('/output/Volume.csv', index=False)
-    save_vol(par['data_base'], par['num_time_steps'])
+        df_vol.to_csv('/output/Volume_' + trip_cls[i] + '.csv', index=False)
+        save_vol(par['data_base'], par['num_time_steps'], trip_cls[i])
+        df_vol_tot += df_arr
+
+    vol_tot = pd.concat([df_ab, df_vol_tot], axis=1)
+    vol_tot.to_csv('/output/Volume_total.csv', index=False)
+    save_vol(par['data_base'], par['num_time_steps'], 'total')
+    
+    t2 = timeit.default_timer()
     log.info(f"Run time {t2 - t1:0.2f} seconds")   
 
     log.info('//--- PyDTA end ---//')

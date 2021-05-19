@@ -5,9 +5,8 @@ Created on Tue Jan 26 14:32:08 2021
 @author: lihe.wang
 """
 
-
 cdef struct node:
-    int n, ni, num_nxlinks
+    int n, ni, num_nxlinks, nd_type
     bint popped
     double imp, time, dist, toll, node_time
     int ts
@@ -16,7 +15,8 @@ cdef struct node:
     link* parent_link
     
 cdef struct link:
-    int a, b, ai, bi
+    long idx
+    int a, b, ai, bi, lk_type, closure, toll_policy
     double dist, ffspd, toll, capacity, alpha, beta
     double *time
-    double *vol
+

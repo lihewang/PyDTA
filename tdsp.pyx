@@ -14,6 +14,7 @@ import timeit
 import time
 cimport heap as hp
 from multiprocessing import shared_memory
+from cpython cimport array
 
 cdef class tdsp:
     cdef td.node* nodes
@@ -24,6 +25,7 @@ cdef class tdsp:
     cdef int num_zones
     cdef int num_links
     cdef int num_time_steps
+    cdef double[:,:,:] vol
 
     def __init__(self, shm_par, par):
         log = logging.getLogger(__name__)
@@ -33,7 +35,7 @@ cdef class tdsp:
         self.mem = Pool()
         self.num_zones = par['num_zones']
         self.num_time_steps = par['num_time_steps']
-        
+        trip_class = list(par['vot'].keys())
         #get nodes and links from shared memory
         node_shape = shm_par[0]
         node_type = shm_par[1]
@@ -93,6 +95,7 @@ cdef class tdsp:
         df_link['FFSPEED'] = df_link['FFSPEED'].replace(0, 25)  
         # loop links
         for index, row in df_link.iterrows():
+            self.links[index].idx = index
             self.links[index].ai = self.node_index[row['A']]
             self.links[index].bi = self.node_index[row['B']]
             self.links[index].a = row['A']
@@ -104,16 +107,18 @@ cdef class tdsp:
             self.links[index].alpha = row['ALPHA']
             self.links[index].beta = row['BETA']
             self.links[index].toll = row['TOLL']
-            #time for time steps
+            # time for time steps
             self.links[index].time = <double*>self.mem.alloc(self.num_time_steps, sizeof(double))
-            self.links[index].vol = <double*>self.mem.alloc(self.num_time_steps, sizeof(double))
             t = row['DISTANCE']/row['FFSPEED']*60       
             for i in range(self.num_time_steps):
                 self.links[index].time[i] = t
-                self.links[index].vol[i] = 0
+                # self.links[index].vol[i] = 0
 
         shm_node.close() 
-        shm_link.close()       
+        shm_link.close()
+        # volume array
+        trip_cls = list(par['vot'].keys())          # get trip classes 
+        self.vol = np.zeros((len(trip_cls), self.num_links, self.num_time_steps))      
         t2 = timeit.default_timer()  
         log.info(f"Run time for link struct is {t2 - t1:0.2f} seconds")
         
@@ -121,7 +126,7 @@ cdef class tdsp:
     cpdef build(self, sp_task):
         # print('--build path from ' + str(sp_task[0]) + ' period ' + str(sp_task[1]) + ' class ' + str(sp_task[2]))
         cdef hp.heap my_heap = hp.heap(self.num_nodes+1)
-        cdef int o_node_index, start_ts, curr_ts, i, j
+        cdef int o_node_index, start_ts, curr_ts, i, j, clsidx
         cdef td.node *top_node
         cdef td.node *b_node
         cdef td.node *nd
@@ -135,7 +140,7 @@ cdef class tdsp:
             return np.array([])
         d_nodes = sp_task[3]
         start_ts = sp_task[1]
-
+        clsidx = sp_task[6]
         #initialize
         d_node_found = []
         for j in range(self.num_nodes):
@@ -162,16 +167,16 @@ cdef class tdsp:
                 if len(d_node_found) == len(d_nodes):       #all destination nodes are found
                     return np.array(d_node_found)
 
-            #zones can't be transpassed    
+            # zones can't be transpassed    
             if top_node.n <= self.num_zones and top_node.ni != o_node_index:
                 continue
             
-            #Calculate time step
+            # calculate time step
             curr_ts = int(top_node.node_time/15) + start_ts
-            if curr_ts > 96:
-                curr_ts -= 96
-            
-            #Next links index
+            if curr_ts > self.num_time_steps:
+                curr_ts = curr_ts % self.num_time_steps
+
+            # next links index
             # for i in range(1):
             for i in range(top_node.num_nxlinks):
                 nxlink = top_node.nxt_links[i]
@@ -209,7 +214,7 @@ cdef class tdsp:
                     b_node.parent = top_node
                     b_node.parent_link = nxlink
                     b_node.ts = curr_ts
-
+                        
         #print('d nodes to build path') 
         #for j in range(len(d_nodes)):
         #    print(d_nodes[j])
@@ -218,13 +223,14 @@ cdef class tdsp:
 
     #trace path
     cpdef trace(self, sp_task, d_nodes_found):
-        cdef int d_node_index, path_size
+        cdef int d_node_index, path_size, clsidx
         cdef td.node *curr_node
         cdef int[:] d_nodes
         cdef double[:] trips
         
         d_nodes = sp_task[3]
         trips = sp_task[4]
+        clsidx = sp_task[6]
         if len(d_nodes_found) == 0:
             return
         for j in range(len(d_nodes)):
@@ -233,44 +239,49 @@ cdef class tdsp:
                 curr_node = &self.nodes[d_node_index]
                 # load volume
                 while curr_node.n != sp_task[0]:
-                    curr_node.parent_link.vol[curr_node.ts-1] += trips[j]
+                    # curr_node.parent_link.vol[curr_node.ts-1][clsidx] += trips[j]           
+                    try:
+                        self.vol[clsidx][curr_node.parent_link.idx][curr_node.ts-1] += trips[j]
+                    except:
+                        print('class ' + str(clsidx) + ' link index ' + str(curr_node.parent_link.idx) + ' time step ' + str(curr_node.ts-1))
                     curr_node = curr_node.parent
 
                 # d_node = &self.nodes[d_node_index]    
                 # print('path from ' + str(sp_task[0]) + ' to ' + str(d_node.n) + ' skim time ' + str(d_node.time) + ' dist ' + str(d_node.dist))
-            # else:
+            else:
                 # print(d_nodes_found)
-                # print('path from ' + str(sp_task[0]) + ' to ' + str(d_nodes[j]) + ' not found')
+                print('path from ' + str(sp_task[0]) + ' to ' + str(d_nodes[j]) + ' not found')
         
         return (curr_node.time, curr_node.dist)
     
-    cpdef get_vol(self):
+    cpdef get_vol(self, numcls):
         cdef int i
         cdef td.link *link
         cdef int iter_smooth = 6
 
-        vol = np.zeros((self.num_links, self.num_time_steps))
-        vol_smth = np.zeros((self.num_links, self.num_time_steps))
-
-        for i in range(self.num_links):
-            for j in range(self.num_time_steps):
-                vol[i][j]=self.links[i].vol[j] 
+        vol_smth = np.zeros((numcls, self.num_links, self.num_time_steps))
 
         # smoothing
         for iter_s in range(iter_smooth):
-            for col in range(self.num_time_steps):                
-                pre = col - 1
-                if pre < 0:
-                    pre = self.num_time_steps-1
-                aft = col + 1
-                if aft > self.num_time_steps-1:
-                    aft = 0
-                vol_smth[:,col] = vol[:,pre]*0.2 + vol[:,aft]*0.2 + vol[:,col]*0.6
-            vol = np.copy(vol_smth)
-        return vol
+            for k in range(numcls):           
+                for col in range(self.num_time_steps):                
+                    pre = col - 1
+                    if pre < 0:
+                        pre = self.num_time_steps-1
+                    aft = col + 1
+                    if aft > self.num_time_steps-1:
+                        aft = 0
+                    vol_smth[k,:,col] = np.asarray(self.vol[k,:,pre])*0.2 + np.asarray(self.vol[k,:,aft])*0.2 + np.asarray(self.vol[k,:,col])*0.6
+            self.vol = np.copy(vol_smth)
 
-    cpdef update_time(self, shared_vol):
+        return self.vol
+
+    cpdef update_time(self, shared_vol, numcls):
+        tot_vol = np.zeros((self.num_links, self.num_time_steps))
+        for k in range(numcls):
+            tot_vol += shared_vol[k,:,:]
+
         for i in range(self.num_links):
             for j in range(self.num_time_steps):
                 self.links[i].time[j] = self.links[i].dist/self.links[i].ffspd*60* \
-                    (1+self.links[i].alpha*(shared_vol[i][j]/self.links[i].capacity*4)**self.links[i].beta)
+                    (1+self.links[i].alpha*(tot_vol[i][j]/self.links[i].capacity*4)**self.links[i].beta)

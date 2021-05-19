@@ -2,7 +2,6 @@ import snowflake.connector
 
 file_path = 'file:///output/'
 
-vol_table_name = 'Volume'
 vol_format = 'UTIL.PUBLIC.CSV_FORMAT'
 
 def create_fields(ts):
@@ -14,7 +13,8 @@ def create_fields(ts):
             vf = vf + ','
     return vf
 
-def save_vol(db, ts):
+def save_vol(db, ts, tcls):
+    vol_table_name = 'Volume_' + tcls
     vol_field = create_fields(ts)
     ctx = snowflake.connector.connect(
         user='lihewang',

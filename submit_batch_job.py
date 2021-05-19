@@ -6,7 +6,7 @@ response = client.submit_job(
     jobName='pydta-job-py',
     jobQueue='model-job-queue',
     
-    jobDefinition='pydta:9',
+    jobDefinition='pydta:11',
 
     containerOverrides={
         'vcpus': 48,
